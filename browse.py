@@ -10,8 +10,8 @@ execfile("parser.py")
 #targetFile = open("processed_data", "w")
 #targetFile.truncate()
 
-#inputFile = open("input", "w")
-#outputFile = open("output", "w")
+inputFile = open("input", "w")
+outputFile = open("output", "w")
 
 #wordListFile = codecs.open("wordCount", "w", encoding="utf-8")
 #wordListFile.truncate()
@@ -28,7 +28,7 @@ cWords = Counter()
 
 wordCnt = 0
 
-lines = [[],[]]
+lines = []
 
 for root, dirs, files in os.walk(os.getcwd()):
 	for f in [f for f in files if ".txt" in f]:
@@ -37,8 +37,7 @@ for root, dirs, files in os.walk(os.getcwd()):
 			print cnt
 			usedMovies.append(f)
 			movieLines = parseFile(root+"\\"+f)
-			lines[0] = lines[0] + movieLines[0]
-			lines[1] = lines[1] + movieLines[1]
+			lines = lines + movieLines
 			#words = words.union(uniqueWords(root+"\\"+f))
 			#wordCnt = wordCnt + wordCount(root+"\\"+f)
 			#cWords += countedWords(root+"\\"+f)
@@ -62,10 +61,7 @@ for w, c in cWords.most_common():
 	wordListFile.write("\n")
 """
 
-for l in lines[0]:
-	inputFile.write(l)
-	inputFile.write("\n")
-
-for l in lines[1]:
-	outputFile.write(l)
-	outputFile.write("\n")
+for i, l in enumerate(lines):
+	inputFile.write(l+"\n")
+	if i != 0:
+		outputFile.write(l+"\n")

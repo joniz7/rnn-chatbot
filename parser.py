@@ -1,6 +1,6 @@
 from collections import Counter
 import codecs
-
+import re
 
 def containsAny(str, set):
     """ Check whether sequence str contains ANY of the items in set. """
@@ -63,12 +63,11 @@ def parseFile(filename):
 	#targetFile = open("data", "w")
 	#targetFile.truncate()
 
-	lines = [[],[]]
+	lines = []
 
 	#print containsAny("<b><!--", ["<", ">","/","\\"])
 
 	totalLine = ""
-	oldLine = "GO"
 
 	for line in txt:
 		if not line == "\n":
@@ -76,9 +75,7 @@ def parseFile(filename):
 				if allCaps(line) and totalLine:
 					#wordSplit = splitSentence(totalLine)
 					#words.append((oldLine, wordSplit))
-					lines[0].append(oldLine.replace("\n", ""))
-					lines[1].append(totalLine.replace("\n", ""))
-					oldLine = totalLine
+					lines.append(re.sub("\(.*?\)", "", totalLine.replace("\n", " ")))
 					totalLine = ""
 				else:
 					totalLine += line
