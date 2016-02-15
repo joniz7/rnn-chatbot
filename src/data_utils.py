@@ -171,7 +171,9 @@ def prepare_dialogue_data(data_dir, utte_vocabulary_size, resp_vocabulary_size):
 
     Args:
       data_dir: directory where the data sets are stored. Assumes data is 
-        called; 'train.input', 'train.output', 'dev.input', 'dev.output'
+        called; 'train-data.utte', 'train-data.resp', 'valid-data.utte' and
+        'valid-data.resp' for input and output for the training and validation
+        data sets.
       utte_vocabulary_size: size of the utterance vocabulary to create and use.
       resp_vocabulary_size: size of the response vocabulary to create and use.
 
