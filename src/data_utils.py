@@ -193,7 +193,7 @@ def prepare_dialogue_data(data_dir, utte_vocabulary_size, resp_vocabulary_size):
 
     # Create token ids for the training data.
     resp_train_ids_path = train_path + (".ids%d.resp" % resp_vocabulary_size)
-    utte_train_ids_path = train_path + (".ids%d.utte") % utte_vocabulary_size)
+    utte_train_ids_path = train_path + (".ids%d.utte" % utte_vocabulary_size)
     data_to_token_ids(train_path + ".resp", resp_train_ids_path, resp_vocab_path)
     data_to_token_ids(train_path + ".utte", utte_train_ids_path, utte_vocab_path)
 
@@ -227,16 +227,15 @@ def check_dialogue_sets(directory):
     responses_suffix = ".resp"
     train_path = os.path.join(directory, train_name)
     valid_path = os.path.join(directory, valid_name)
-    if not (gfile.Exists(train_path + utterances_suffix)
-        raise ValueError("Training file %s not found.", 
-                train_path + utterances_suffix)
-    if not (gfile.Exists(train_path + responses_suffix)
+    if not (gfile.Exists(train_path + utterances_suffix)):
+        raise ValueError("Training file %s not found.", train_path + utterances_suffix)
+    if not (gfile.Exists(train_path + responses_suffix)):
         raise ValueError("Training file %s not found.", 
                 train_path + responses_suffix)
-    if not (gfile.Exists(valid_path + utterances_suffix)
+    if not (gfile.Exists(valid_path + utterances_suffix)):
         raise ValueError("Validation file %s not found.", 
                 valid_path + utterances_suffix)
-    if not (gfile.Exists(valid_path + responses_suffix)
+    if not (gfile.Exists(valid_path + responses_suffix)):
         raise ValueError("Validation file %s not found.", 
                 valid_path + responses_suffix)
 

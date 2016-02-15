@@ -1,5 +1,6 @@
 import os 
 import codecs
+import random
 from collections import Counter
 
 execfile("parser.py")
@@ -10,8 +11,11 @@ execfile("parser.py")
 #targetFile = open("processed_data", "w")
 #targetFile.truncate()
 
-inputFile = open("input", "w")
-outputFile = open("output", "w")
+trainInputFile = open("..\\data\\train-data.utte", "w")
+trainOutputFile = open("..\\data\\train-data.resp", "w")
+
+validInputFile = open("..\\data\\valid-data.utte", "w")
+validOutputFile = open("..\\data\\valid-data.resp", "w")
 
 #wordListFile = codecs.open("wordCount", "w", encoding="utf-8")
 #wordListFile.truncate()
@@ -60,8 +64,11 @@ for w, c in cWords.most_common():
 	wordListFile.write(str(w)+"\t\t\t\t\t%i"%c)
 	wordListFile.write("\n")
 """
-
-for i, l in enumerate(lines):
-	inputFile.write(l+"\n")
-	if i != 0:
-		outputFile.write(l+"\n")
+random.seed()
+for i in range(len(lines)-1):
+	if random.randint(0,10) > 3:
+		trainInputFile.write(lines[i]+"\n")
+		trainOutputFile.write(lines[i+1]+"\n")
+	else:
+		validInputFile.write(lines[i]+"\n")
+		validOutputFile.write(lines[i+1]+"\n")
