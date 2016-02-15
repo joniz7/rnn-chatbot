@@ -28,8 +28,8 @@ import tensorflow as tf
 from tensorflow.models.rnn import rnn_cell
 from tensorflow.models.rnn import seq2seq
 
-from tensorflow.models.rnn.translate import data_utils
-
+#from tensorflow.models.rnn.translate import data_utils
+import data_utils
 
 class Seq2SeqModel(object):
   """Sequence-to-sequence model with attention and for multiple buckets.
