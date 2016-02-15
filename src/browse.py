@@ -5,6 +5,9 @@ from collections import Counter
 
 execfile("parser.py")
 
+def splitApostrophe(line):
+  return line.replace("n't", " n't").replace("'s", " 's").replace("'re", " 're").replace("'ve", " 've").replace("'d", " 'd").replace("'ll", " 'll").replace("'m", " 'm")
+
 #monster = codecs.open("data", "w")
 #monster.truncate()
 
@@ -66,9 +69,10 @@ for w, c in cWords.most_common():
 """
 random.seed()
 for i in range(len(lines)-1):
+	utt, resp = (splitApostrophe(lines[i])+"\n", splitApostrophe(lines[i+1])+"\n")
 	if random.randint(0,10) > 3:
-		trainInputFile.write(lines[i]+"\n")
-		trainOutputFile.write(lines[i+1]+"\n")
+		trainInputFile.write(utt)
+		trainOutputFile.write(resp)
 	else:
-		validInputFile.write(lines[i]+"\n")
-		validOutputFile.write(lines[i+1]+"\n")
+		validInputFile.write(utt)
+		validOutputFile.write(resp)
