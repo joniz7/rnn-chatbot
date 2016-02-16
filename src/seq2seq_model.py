@@ -31,6 +31,7 @@ from tensorflow.models.rnn import seq2seq
 #from tensorflow.models.rnn.translate import data_utils
 import data_utils
 
+
 class Seq2SeqModel(object):
   """Sequence-to-sequence model with attention and for multiple buckets.
 
@@ -135,19 +136,19 @@ class Seq2SeqModel(object):
     if forward_only:
       self.outputs, self.losses = seq2seq.model_with_buckets(
           self.encoder_inputs, self.decoder_inputs, targets,
-          self.target_weights, buckets, lambda x, y: seq2seq_f(x, y, True),
+          self.target_weights, buckets, self.target_vocab_size,
+          lambda x, y: seq2seq_f(x, y, True),
           softmax_loss_function=softmax_loss_function)
       # If we use output projection, we need to project outputs for decoding.
       if output_projection is not None:
         for b in xrange(len(buckets)):
-          self.outputs[b] = [
-              tf.matmul(output, output_projection[0]) + output_projection[1]
-              for output in self.outputs[b]
-          ]
+          self.outputs[b] = [tf.nn.xw_plus_b(output, output_projection[0],
+                                             output_projection[1])
+                             for output in self.outputs[b]]
     else:
       self.outputs, self.losses = seq2seq.model_with_buckets(
           self.encoder_inputs, self.decoder_inputs, targets,
-          self.target_weights, buckets,
+          self.target_weights, buckets, self.target_vocab_size,
           lambda x, y: seq2seq_f(x, y, False),
           softmax_loss_function=softmax_loss_function)
 
@@ -184,7 +185,7 @@ class Seq2SeqModel(object):
       average perplexity, and the outputs.
 
     Raises:
-      ValueError: if length of encoder_inputs, decoder_inputs, or
+      ValueError: if length of enconder_inputs, decoder_inputs, or
         target_weights disagrees with bucket size for the specified bucket_id.
     """
     # Check if the sizes match.
