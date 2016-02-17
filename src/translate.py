@@ -50,6 +50,8 @@ from tensorflow.python.platform import gfile
 import data_utils
 import seq2seq_model
 
+tf.app.flags.DEFINE_float("initial_accumulator_value", 0.1, 
+                          "Starting value for the accumulators in Adagrad, must be positive")
 tf.app.flags.DEFINE_float("learning_rate", 0.5, "Learning rate.")
 tf.app.flags.DEFINE_float("learning_rate_decay_factor", 0.99,
                           "Learning rate decays by this much.")
@@ -123,7 +125,8 @@ def create_model(session, forward_only):
       FLAGS.en_vocab_size, FLAGS.fr_vocab_size, _buckets,
       FLAGS.size, FLAGS.num_layers, FLAGS.max_gradient_norm, FLAGS.batch_size,
       FLAGS.learning_rate, FLAGS.learning_rate_decay_factor,
-      forward_only=forward_only)
+      forward_only=forward_only,
+      initial_accumulator_value=FLAGS.initial_accumulator_value)
   ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
   if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
     print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
@@ -131,6 +134,7 @@ def create_model(session, forward_only):
   else:
     print("Created model with fresh parameters.")
     session.run(tf.initialize_all_variables())
+    print [v.name for v in tf.trainable_variables() if "embedding" in v.name]
   return model
 
 
