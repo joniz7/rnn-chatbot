@@ -43,13 +43,12 @@ for root, dirs, files in os.walk(os.getcwd()):
 			cnt = cnt+1
 			print cnt
 			usedMovies.append(f)
-			movieLines = parseFile(root+"\\"+f)
-			lines = lines + movieLines
+			lines = lines + parseFile(root+"\\"+f)
 			#words = words.union(uniqueWords(root+"\\"+f))
 			#wordCnt = wordCnt + wordCount(root+"\\"+f)
 			#cWords += countedWords(root+"\\"+f)
-#			movies.append((f, parseFile(root+"\\"+f)))
-#			monster.write(open(root+"\\"+f).read())
+			#movies.append((f, parseFile(root+"\\"+f)))
+			#monster.write(open(root+"\\"+f).read())
 
 
 #cWords = countedWords("data")
