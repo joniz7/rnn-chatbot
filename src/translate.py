@@ -131,6 +131,8 @@ def create_model(session, forward_only):
   else:
     print("Created model with fresh parameters.")
     session.run(tf.initialize_all_variables())
+    with tf.variable_scope("embedding_attention_seq2seq/embedding_attention_decoder"):
+      embedding =  tf.get_variable("embedding")
   return model
 
 
