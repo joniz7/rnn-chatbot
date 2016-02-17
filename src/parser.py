@@ -2,6 +2,8 @@ from collections import Counter
 import codecs
 import re
 
+
+
 def containsAny(str, set):
     """ Check whether sequence str contains ANY of the items in set. """
     return 1 in [c in str for c in set]
@@ -75,7 +77,7 @@ def parseFile(filename):
 				if allCaps(line) and totalLine:
 					#wordSplit = splitSentence(totalLine)
 					#words.append((oldLine, wordSplit))
-					lines.append(re.sub("\(.*?\)", "", totalLine.replace("\n", " ")))
+					lines.append(re.sub("\(.*?\)", "", totalLine.replace("\n", " ").lower()))
 					totalLine = ""
 				else:
 					totalLine += line

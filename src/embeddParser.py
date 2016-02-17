@@ -41,7 +41,7 @@ i = 0
 for line in gloveFile:
   values = line.split()
   if values[0] in vocab:
-    vocab[values[0]]['embedding'] = values[1:]
+    vocab[values[0].lower()]['embedding'] = values[1:]
   i += 1
   if(i % 5000 == 0):
     print str(i)
@@ -50,12 +50,15 @@ print "================ write file ======================"
 
 notInEmbed = 0
 
+nem = open("notInEmbed.txt", "w")
+
 for i, word in enumerate(rowToWord):
   vocWord = vocab[word]
   if('embedding' in vocWord):
     newEmbed.write(word+" "+printValues(vocWord['embedding'])+"\n")
   else:
     newEmbed.write(word+"\n")
+    nem.write(word+"\n")
     notInEmbed += 1
   if(i%1000 == 0):
     print str(i)
