@@ -504,7 +504,7 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
 
   with vs.variable_scope(scope or "embedding_attention_decoder"):
     with ops.device("/cpu:0"):
-      embedding = vs.get_variable("embedding", [num_symbols, cell.input_size])
+      embedding = vs.get_variable("embedding", [num_symbols, cell.input_size], trainable=False) ##### Changed to trainable = False
 
     def extract_argmax_and_embed(prev, _):
       """Loop_function that extracts the symbol from prev and embeds it."""
@@ -566,7 +566,8 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
   """
   with vs.variable_scope(scope or "embedding_attention_seq2seq"):
     # Encoder.
-    encoder_cell = rnn_cell.EmbeddingWrapper(cell, num_encoder_symbols)
+    our_embedding = vs.get_variable("embedding", [num_symbols, cell.input_size], trainable=False) #######
+    encoder_cell = rnn_cell.EmbeddingWrapper(cell, num_encoder_symbols, embedding=our_embedding) ######## Added embedding to wrapper
     encoder_outputs, encoder_states = rnn.rnn(
         encoder_cell, encoder_inputs, dtype=dtype)
 
