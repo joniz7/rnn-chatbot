@@ -66,8 +66,7 @@ tf.app.flags.DEFINE_integer("batch_size", 64,
 tf.app.flags.DEFINE_integer("embedding_dimensions", 50, "Dimension of the embedding vectors")
 tf.app.flags.DEFINE_integer("size", 1, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("num_layers", 1, "Number of layers in the model.")
-tf.app.flags.DEFINE_integer("en_vocab_size", 100, "English vocabulary size.")
-tf.app.flags.DEFINE_integer("fr_vocab_size", 100, "French vocabulary size.")
+tf.app.flags.DEFINE_integer("vocab_size", 30000, "Size of our vocabulary")
 tf.app.flags.DEFINE_string("data_dir", "../data", "Data directory")
 tf.app.flags.DEFINE_string("train_dir", "../data", "Training directory.")
 tf.app.flags.DEFINE_integer("max_train_data_size", 0,
@@ -142,10 +141,10 @@ def create_model(session, forward_only):
   """Create translation model and initialize or load parameters in session."""
 
   with tf.variable_scope("embedding_attention_seq2seq/embedding"):
-    tf.get_variable("embedding", [FLAGS.en_vocab_size, FLAGS.embedding_dimensions])
+    tf.get_variable("embedding", [FLAGS.vocab_size, FLAGS.embedding_dimensions])
 
   model = seq2seq_model.Seq2SeqModel(
-      FLAGS.en_vocab_size, FLAGS.fr_vocab_size, _buckets,
+      FLAGS.vocab_size, FLAGS.vocab_size, _buckets,
       FLAGS.size, FLAGS.num_layers, FLAGS.max_gradient_norm, FLAGS.batch_size,
       FLAGS.learning_rate, FLAGS.learning_rate_decay_factor,
       forward_only=forward_only, embedding_dimension=FLAGS.embedding_dimensions,
@@ -164,7 +163,7 @@ def train():
   # Prepare WMT data.
   print("Preparing WMT data in %s" % FLAGS.data_dir)
   en_train, fr_train, en_dev, fr_dev, _, _ = data_utils.prepare_dialogue_data(
-      FLAGS.data_dir, FLAGS.en_vocab_size, FLAGS.fr_vocab_size)
+      FLAGS.data_dir, FLAGS.vocab_size, FLAGS.vocab_size)
 
   with tf.Session() as sess:
     # Create model.
@@ -252,9 +251,9 @@ def decode():
 
     # Load vocabularies.
     en_vocab_path = os.path.join(FLAGS.data_dir,
-                                 "vocab%d.utte" % FLAGS.en_vocab_size)
+                                 "vocab%d.utte" % FLAGS.vocab_size)
     fr_vocab_path = os.path.join(FLAGS.data_dir,
-                                 "vocab%d.resp" % FLAGS.fr_vocab_size)
+                                 "vocab%d.resp" % FLAGS.vocab_size)
     en_vocab, _ = data_utils.initialize_vocabulary(en_vocab_path)
     _, rev_fr_vocab = data_utils.initialize_vocabulary(fr_vocab_path)
 
