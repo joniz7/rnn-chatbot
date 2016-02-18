@@ -196,10 +196,9 @@ def train():
     while True:
       with tf.variable_scope("embedding_attention_seq2seq/embedding"):
         embedding = sess.run(tf.get_variable("embedding"))
-        print("decode embedding when starting to train:")
-        print("dimensions: "+str(len(embedding))+"   "+str(len(embedding[0])))
-        print(embedding[0])
+        temp = embedding_ops.embedding_lookup(embedding, [6])
         print(embedding[6])
+        print(temp)
       # Choose a bucket according to data distribution. We pick a random number
       # in [0, 1] and use the corresponding interval in train_buckets_scale.
       random_number_01 = np.random.random_sample()
