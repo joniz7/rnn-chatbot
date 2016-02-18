@@ -26,7 +26,8 @@ from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
 from tensorflow.models.rnn import rnn_cell
-from tensorflow.models.rnn import seq2seq
+#from tensorflow.models.rnn import seq2seq
+import seq2seq
 
 #from tensorflow.models.rnn.translate import data_utils
 import data_utils
@@ -50,7 +51,7 @@ class Seq2SeqModel(object):
   def __init__(self, source_vocab_size, target_vocab_size, buckets, size,
                num_layers, max_gradient_norm, batch_size, learning_rate,
                learning_rate_decay_factor, use_lstm=False,
-               num_samples=512, forward_only=False):
+               num_samples=512, forward_only=False, embedding_dimension=50):
     """Create the model.
 
     Args:
@@ -81,6 +82,7 @@ class Seq2SeqModel(object):
     self.learning_rate_decay_op = self.learning_rate.assign(
         self.learning_rate * learning_rate_decay_factor)
     self.global_step = tf.Variable(0, trainable=False)
+    self.embedding_dimension = embedding_dimension
 
     # If we use sampled softmax, we need an output projection.
     output_projection = None
@@ -113,7 +115,7 @@ class Seq2SeqModel(object):
       return seq2seq.embedding_attention_seq2seq(
           encoder_inputs, decoder_inputs, cell, source_vocab_size,
           target_vocab_size, output_projection=output_projection,
-          feed_previous=do_decode)
+          feed_previous=do_decode, embedding_dimension=embedding_dimension)
 
     # Feeds for inputs.
     self.encoder_inputs = []

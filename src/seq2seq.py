@@ -18,6 +18,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import sys
+
 from six.moves import xrange  # pylint: disable=redefined-builtin
 
 from tensorflow.python.framework import dtypes
@@ -174,6 +176,7 @@ def embedding_rnn_decoder(decoder_inputs, initial_state, cell, num_symbols,
 
   with vs.variable_scope(scope or "embedding_rnn_decoder"):
     with ops.device("/cpu:0"):
+
       embedding = vs.get_variable("embedding", [num_symbols, cell.input_size])
 
     def extract_argmax_and_embed(prev, _):
@@ -461,7 +464,7 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
                                 cell, num_symbols, num_heads=1,
                                 output_size=None, output_projection=None,
                                 feed_previous=False, dtype=dtypes.float32,
-                                scope=None):
+                                scope=None, embedding_dimension=50):
   """RNN decoder with embedding and attention and a pure-decoding option.
   Args:
     decoder_inputs: a list of 1D batch-sized int32 Tensors (decoder inputs).
@@ -502,10 +505,10 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
     proj_biases = ops.convert_to_tensor(output_projection[1], dtype=dtype)
     proj_biases.get_shape().assert_is_compatible_with([num_symbols])
 
-  with vs.variable_scope(scope or "embedding_attention_decoder"):
-    with ops.device("/cpu:0"):
-      embedding = vs.get_variable("embedding", [num_symbols, cell.input_size], trainable=False) ##### Changed to trainable = False
+  with vs.variable_scope("embedding", reuse=True):
+    embedding = vs.get_variable("embedding", [num_symbols, embedding_dimension])
 
+  with vs.variable_scope(scope or "embedding_attention_decoder"):
     def extract_argmax_and_embed(prev, _):
       """Loop_function that extracts the symbol from prev and embeds it."""
       if output_projection is not None:
@@ -530,7 +533,7 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
                                 num_encoder_symbols, num_decoder_symbols,
                                 num_heads=1, output_projection=None,
                                 feed_previous=False, dtype=dtypes.float32,
-                                scope=None):
+                                scope=None, embedding_dimension=50):
   """Embedding sequence-to-sequence model with attention.
   This model first embeds encoder_inputs by a newly created embedding (of shape
   [num_encoder_symbols x cell.input_size]). Then it runs an RNN to encode
@@ -566,8 +569,10 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
   """
   with vs.variable_scope(scope or "embedding_attention_seq2seq"):
     # Encoder.
-    our_embedding = vs.get_variable("embedding", [num_symbols, cell.input_size], trainable=False) #######
-    encoder_cell = rnn_cell.EmbeddingWrapper(cell, num_encoder_symbols, embedding=our_embedding) ######## Added embedding to wrapper
+    with vs.variable_scope("embedding", reuse=True):
+      our_embedding = vs.get_variable("embedding", [num_encoder_symbols, embedding_dimension]) #######
+    encoder_cell = rnn_cell.EmbeddingWrapper(cell, embedding=our_embedding) ######## Added embedding to wrapper 
+    
     encoder_outputs, encoder_states = rnn.rnn(
         encoder_cell, encoder_inputs, dtype=dtype)
 
@@ -586,15 +591,17 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
       return embedding_attention_decoder(
           decoder_inputs, encoder_states[-1], attention_states, cell,
           num_decoder_symbols, num_heads, output_size, output_projection,
-          feed_previous)
+          feed_previous, embedding_dimension=embedding_dimension)
     else:  # If feed_previous is a Tensor, we construct 2 graphs and use cond.
       outputs1, states1 = embedding_attention_decoder(
           decoder_inputs, encoder_states[-1], attention_states, cell,
-          num_decoder_symbols, num_heads, output_size, output_projection, True)
+          num_decoder_symbols, num_heads, output_size, output_projection, True, 
+          embedding_dimension=embedding_dimension)
       vs.get_variable_scope().reuse_variables()
       outputs2, states2 = embedding_attention_decoder(
           decoder_inputs, encoder_states[-1], attention_states, cell,
-          num_decoder_symbols, num_heads, output_size, output_projection, False)
+          num_decoder_symbols, num_heads, output_size, output_projection, False, 
+          embedding_dimension=embedding_dimension)
 
       outputs = control_flow_ops.cond(feed_previous,
                                       lambda: outputs1, lambda: outputs2)

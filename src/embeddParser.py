@@ -12,6 +12,9 @@ def file_len(fname):
             pass
     return i + 1
 
+def unkValues(dim):
+  return ["0.0" for _ in range(dim)]
+
 if(len(sys.argv) < 3):
   print "Not enough arguments"
   sys.exit()
@@ -57,7 +60,7 @@ for i, word in enumerate(rowToWord):
   if('embedding' in vocWord):
     newEmbed.write(word+" "+printValues(vocWord['embedding'])+"\n")
   else:
-    newEmbed.write(word+"\n")
+    newEmbed.write(word+" "+printValues(unkValues(int(sys.argv[3])))+"\n")
     nem.write(word+"\n")
     notInEmbed += 1
   if(i%1000 == 0):

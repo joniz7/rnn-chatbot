@@ -82,3 +82,11 @@ def parseFile(filename):
 				else:
 					totalLine += line
 	return lines
+
+def parseEmbeddings(filename):
+	file = open(filename)
+	mat = []	
+	for line in file:
+		mat.append(map(float, line.split()[1:]))
+
+	return mat

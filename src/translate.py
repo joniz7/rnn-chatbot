@@ -46,9 +46,12 @@ import tensorflow as tf
 #from tensorflow.models.rnn.translate import data_utils
 #from tensorflow.models.rnn.translate import seq2seq_model
 from tensorflow.python.platform import gfile
+from tensorflow.python.ops import embedding_ops
 
 import data_utils
 import seq2seq_model
+
+execfile("parser.py")
 
 tf.app.flags.DEFINE_float("learning_rate", 0.5, "Learning rate.")
 tf.app.flags.DEFINE_float("learning_rate_decay_factor", 0.99,
@@ -57,10 +60,11 @@ tf.app.flags.DEFINE_float("max_gradient_norm", 5.0,
                           "Clip gradients to this norm.")
 tf.app.flags.DEFINE_integer("batch_size", 64,
                             "Batch size to use during training.")
-tf.app.flags.DEFINE_integer("size", 1024, "Size of each model layer.")
-tf.app.flags.DEFINE_integer("num_layers", 3, "Number of layers in the model.")
-tf.app.flags.DEFINE_integer("en_vocab_size", 40000, "English vocabulary size.")
-tf.app.flags.DEFINE_integer("fr_vocab_size", 40000, "French vocabulary size.")
+tf.app.flags.DEFINE_integer("embedding_dimensions", 50, "Dimension of the embedding vectors")
+tf.app.flags.DEFINE_integer("size", 1, "Size of each model layer.")
+tf.app.flags.DEFINE_integer("num_layers", 1, "Number of layers in the model.")
+tf.app.flags.DEFINE_integer("en_vocab_size", 100, "English vocabulary size.")
+tf.app.flags.DEFINE_integer("fr_vocab_size", 100, "French vocabulary size.")
 tf.app.flags.DEFINE_string("data_dir", "../data", "Data directory")
 tf.app.flags.DEFINE_string("train_dir", "../data", "Training directory.")
 tf.app.flags.DEFINE_integer("max_train_data_size", 0,
@@ -71,12 +75,26 @@ tf.app.flags.DEFINE_boolean("decode", False,
                             "Set to True for interactive decoding.")
 tf.app.flags.DEFINE_boolean("self_test", False,
                             "Run a self-test if this is set to True.")
+tf.app.flags.DEFINE_string("embedding_path", "embeddings.txt", "The path for the file with initial embeddings")
 
 FLAGS = tf.app.flags.FLAGS
 
 # We use a number of buckets and pad to the closest one for efficiency.
 # See seq2seq_model.Seq2SeqModel for details of how they work.
 _buckets = [(5, 10), (10, 15), (20, 25), (40, 50)]
+
+
+def inject_embeddings(source_path):
+  """Read embeddings from source and replace the current embeddings with this.
+
+  Args:
+    source_path : path to the file with the embeddings"""
+
+  print("Load embedding from %s"%source_path)
+  with tf.variable_scope("embedding_attention_seq2seq/embedding"):
+    with tf.Session() as sess:
+      embedding = tf.get_variable("embedding")
+      sess.run(embedding.assign(parseEmbeddings(source_path)))
 
 
 def read_data(source_path, target_path, max_size=None):
@@ -119,11 +137,15 @@ def read_data(source_path, target_path, max_size=None):
 
 def create_model(session, forward_only):
   """Create translation model and initialize or load parameters in session."""
+
+  with tf.variable_scope("embedding_attention_seq2seq/embedding"):
+    tf.get_variable("embedding", [FLAGS.en_vocab_size, FLAGS.embedding_dimensions])
+
   model = seq2seq_model.Seq2SeqModel(
       FLAGS.en_vocab_size, FLAGS.fr_vocab_size, _buckets,
       FLAGS.size, FLAGS.num_layers, FLAGS.max_gradient_norm, FLAGS.batch_size,
       FLAGS.learning_rate, FLAGS.learning_rate_decay_factor,
-      forward_only=forward_only)
+      forward_only=forward_only, embedding_dimension=FLAGS.embedding_dimensions)
   ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
   if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
     print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
@@ -131,9 +153,25 @@ def create_model(session, forward_only):
   else:
     print("Created model with fresh parameters.")
     session.run(tf.initialize_all_variables())
-    with tf.variable_scope("embedding_attention_seq2seq/embedding_attention_decoder"):
-      embedding =  tf.get_variable("embedding")
+
   return model
+"""
+  
+  with tf.Session() as sess:
+    with tf.variable_scope("embedding_attention_seq2seq/embedding_attention_decoder"):
+      embedding = tf.get_variable("embedding")
+      embedding.assign(rawEmbeddings)
+      embedding = sess.run(embedding)
+      print("decode embedding when starting to train:")
+      print("dimensions: "+str(len(embedding))+"   "+str(len(embedding[0])))
+
+    with tf.variable_scope("embedding_attention_seq2seq"):
+      embedding = tf.get_variable("embedding")
+      embedding.assign(rawEmbeddings)
+      embedding = sess.run(embedding)
+      print("encode embedding when starting to train:")
+      print("dimensions: "+str(len(embedding))+"   "+str(len(embedding[0])))"""
+  
 
 
 def train():
@@ -147,6 +185,26 @@ def train():
     # Create model.
     print("Creating %d layers of %d units." % (FLAGS.num_layers, FLAGS.size))
     model = create_model(sess, False)
+    #inject_embeddings(FLAGS.embedding_path) Dunno why this doesn't work
+
+    with tf.variable_scope("embedding_attention_seq2seq/embedding"): #Inject the embeddings
+      embedding = tf.get_variable("embedding")
+      sess.run(embedding.assign(parseEmbeddings(FLAGS.embedding_path)))
+
+    for v in [v.name for v in tf.trainable_variables() if "embedding:" in v.name]:  
+      print(v + "\n")
+
+    
+
+    with tf.variable_scope("embedding_attention_seq2seq/embedding"):
+      embedding = sess.run(tf.get_variable("embedding"))
+      print("decode embedding when starting to train:")
+      print("dimensions: "+str(len(embedding))+"   "+str(len(embedding[0])))
+      print(embedding[0])
+      print(embedding[6])
+
+      #print(embedding_ops.embedding_lookup(embedding, [1]))
+    print("belo")
 
     # Read data into buckets and compute their sizes.
     print ("Reading development and training data (limit: %d)."
@@ -167,6 +225,12 @@ def train():
     current_step = 0
     previous_losses = []
     while True:
+      with tf.variable_scope("embedding_attention_seq2seq/embedding"):
+        embedding = sess.run(tf.get_variable("embedding"))
+        print("decode embedding when starting to train:")
+        print("dimensions: "+str(len(embedding))+"   "+str(len(embedding[0])))
+        print(embedding[0])
+        print(embedding[6])
       # Choose a bucket according to data distribution. We pick a random number
       # in [0, 1] and use the corresponding interval in train_buckets_scale.
       random_number_01 = np.random.random_sample()
@@ -213,6 +277,7 @@ def decode():
   with tf.Session() as sess:
     # Create model and load parameters.
     model = create_model(sess, True)
+    inject_embeddings(FLAGS.embedding_path)
     model.batch_size = 1  # We decode one sentence at a time.
 
     # Load vocabularies.
