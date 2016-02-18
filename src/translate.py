@@ -51,8 +51,11 @@ from tensorflow.python.ops import embedding_ops
 import data_utils
 import seq2seq_model
 
+
 execfile("parser.py")
 
+tf.app.flags.DEFINE_float("initial_accumulator_value", 0.1, 
+                          "Starting value for the accumulators in Adagrad, must be positive")
 tf.app.flags.DEFINE_float("learning_rate", 0.5, "Learning rate.")
 tf.app.flags.DEFINE_float("learning_rate_decay_factor", 0.99,
                           "Learning rate decays by this much.")
@@ -145,7 +148,8 @@ def create_model(session, forward_only):
       FLAGS.en_vocab_size, FLAGS.fr_vocab_size, _buckets,
       FLAGS.size, FLAGS.num_layers, FLAGS.max_gradient_norm, FLAGS.batch_size,
       FLAGS.learning_rate, FLAGS.learning_rate_decay_factor,
-      forward_only=forward_only, embedding_dimension=FLAGS.embedding_dimensions)
+      forward_only=forward_only, embedding_dimension=FLAGS.embedding_dimensions,
+      initial_accumulator_value=FLAGS.initial_accumulator_value)
   ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
   if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
     print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
@@ -153,27 +157,8 @@ def create_model(session, forward_only):
   else:
     print("Created model with fresh parameters.")
     session.run(tf.initialize_all_variables())
-
   return model
-"""
   
-  with tf.Session() as sess:
-    with tf.variable_scope("embedding_attention_seq2seq/embedding_attention_decoder"):
-      embedding = tf.get_variable("embedding")
-      embedding.assign(rawEmbeddings)
-      embedding = sess.run(embedding)
-      print("decode embedding when starting to train:")
-      print("dimensions: "+str(len(embedding))+"   "+str(len(embedding[0])))
-
-    with tf.variable_scope("embedding_attention_seq2seq"):
-      embedding = tf.get_variable("embedding")
-      embedding.assign(rawEmbeddings)
-      embedding = sess.run(embedding)
-      print("encode embedding when starting to train:")
-      print("dimensions: "+str(len(embedding))+"   "+str(len(embedding[0])))"""
-  
-
-
 def train():
   """Train a en->fr translation model using WMT data."""
   # Prepare WMT data.
@@ -189,22 +174,7 @@ def train():
 
     with tf.variable_scope("embedding_attention_seq2seq/embedding"): #Inject the embeddings
       embedding = tf.get_variable("embedding")
-      sess.run(embedding.assign(parseEmbeddings(FLAGS.embedding_path)))
-
-    for v in [v.name for v in tf.trainable_variables() if "embedding:" in v.name]:  
-      print(v + "\n")
-
-    
-
-    with tf.variable_scope("embedding_attention_seq2seq/embedding"):
-      embedding = sess.run(tf.get_variable("embedding"))
-      print("decode embedding when starting to train:")
-      print("dimensions: "+str(len(embedding))+"   "+str(len(embedding[0])))
-      print(embedding[0])
-      print(embedding[6])
-
-      #print(embedding_ops.embedding_lookup(embedding, [1]))
-    print("belo")
+      sess.run(embedding.assign(parseEmbeddings(FLAGS.embedding_path)))  
 
     # Read data into buckets and compute their sizes.
     print ("Reading development and training data (limit: %d)."
