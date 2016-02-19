@@ -59,6 +59,7 @@ else:
   else:
     print "Creating embeddings"
     sys.argv = ["embeddParser.py", vocabFiles[0], gloveFile, embedding_dimension]
+    execfile("embeddParser.py")
 
 
 print "Everything is prepared, running main script!"
