@@ -2,8 +2,15 @@ import os
 import random
 import operator
 import sys
+import time
 
 from collections import Counter
+
+# 50/25/25 (of 100) partition between training, validation and test data respectively
+train_data_size = 50
+valid_data_size = 25
+test_data_size = 25
+
 execfile("parser.py")
 
 def splitApostrophe(line):
@@ -15,10 +22,15 @@ trainOutputFile = open("../data/train-data.resp", "w")
 validInputFile = open("../data/valid-data.utte", "w")
 validOutputFile = open("../data/valid-data.resp", "w")
 
+testInputFile = open("../data/test-data.utte", "w")
+testOutputFile = open("../data/test-data.resp", "w")
+
 trainInputFile.truncate()
 trainOutputFile.truncate()
 validInputFile.truncate()
 validOutputFile.truncate()
+testInputFile.truncate()
+testOutputFile.truncate()
 
 
 usedMovies = []
@@ -40,14 +52,21 @@ for root, dirs, files in os.walk(os.getcwd()):
 
 print "================== Creating training and validation data ===================="
 
-random.seed()
+random.seed(1234567890)
+totalProb = train_data_size + valid_data_size + test_data_size
+start_time = time.time()
 for i in range(len(lines)-1):
 	utt, resp = (splitApostrophe(lines[i])+"\n", splitApostrophe(lines[i+1])+"\n")
-	if random.randint(0,10) > 3:
+	ran = random.randint(0,totalProb)
+	if train_data_size > ran:
 		trainInputFile.write(utt)
 		trainOutputFile.write(resp)
-	else:
+	elif train_data_size + valid_data_size > ran:
 		validInputFile.write(utt)
 		validOutputFile.write(resp)
-
+	else:
+		testInputFile.write(utt)
+		testOutputFile.write(resp)
+end_time = time.time()
 print "Done."
+print("Elapsed time was %g seconds" % (end_time - start_time))
