@@ -5,10 +5,14 @@ import sys
 
 from collections import Counter
 
-# 50/25/25 (of 100) partition between training, validation and test data respectively
-train_data_size = 50
-valid_data_size = 25
-test_data_size = 25
+# percentage of partitions between training, validation and test data respectively
+if(len(sys.argv) < 4):
+  print "Not enough arguments"
+  sys.exit()
+
+train_data_percentage = sys.argv[1]
+valid_data_percentage = sys.argv[2]
+test_data_percentage = sys.argv[3]
 
 execfile("parser.py")
 
@@ -52,14 +56,14 @@ for root, dirs, files in os.walk(os.getcwd()):
 print "================== Creating training and validation data ===================="
 
 random.seed(1234567890)
-totalProb = train_data_size + valid_data_size + test_data_size
+totalProb = train_data_percentage + valid_data_percentage + test_data_percentage
 for i in range(len(lines)-1):
 	utt, resp = (splitApostrophe(lines[i])+"\n", splitApostrophe(lines[i+1])+"\n")
 	ran = random.randint(0,totalProb)
-	if train_data_size > ran:
+	if train_data_percentage > ran:
 		trainInputFile.write(utt)
 		trainOutputFile.write(resp)
-	elif train_data_size + valid_data_size > ran:
+	elif train_data_percentage + valid_data_percentage > ran:
 		validInputFile.write(utt)
 		validOutputFile.write(resp)
 	else:

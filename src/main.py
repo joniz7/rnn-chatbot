@@ -28,7 +28,12 @@ import sys
 # Parameters
 vocab_size = 30000
 embedding_dimension = 50
-train_data_proportion = 0.7
+
+# percentage of partitions between training, validation and test data respectively
+train_data_percentage = 50
+valid_data_percentage = 25
+test_data_percentage = 25
+
 embeddings_filename = "embeddings.txt"
 data_path = "../data"
 
@@ -38,6 +43,7 @@ print "================== Checking if training and validation data exists ======
 if(reduce(operator.and_, map(os.path.isfile, trainingFiles))):
   print "Exists, moving on"
 else:
+  sys.argv = ["browse.py", train_data_percentage, valid_data_percentage, test_data_percentage]
   execfile("browse.py")
 
 
