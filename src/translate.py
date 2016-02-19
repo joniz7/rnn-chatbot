@@ -165,6 +165,9 @@ def train():
   en_train, fr_train, en_dev, fr_dev, _, _ = data_utils.prepare_dialogue_data(
       FLAGS.data_dir, FLAGS.vocab_size, FLAGS.vocab_size)
 
+  print("open file")
+  logFile = open("../data/logs.txt", "w") ########################################################################################## TEMP
+
   with tf.Session() as sess:
     # Create model.
     print("Creating %d layers of %d units." % (FLAGS.num_layers, FLAGS.size))
@@ -194,11 +197,11 @@ def train():
     current_step = 0
     previous_losses = []
     while True:
-      with tf.variable_scope("embedding_attention_seq2seq/embedding"):
+      """with tf.variable_scope("embedding_attention_seq2seq/embedding"):
         embedding = sess.run(tf.get_variable("embedding"))
         temp = embedding_ops.embedding_lookup(embedding, [6])
         print(embedding[6])
-        print(temp)
+        print(temp)"""
       # Choose a bucket according to data distribution. We pick a random number
       # in [0, 1] and use the corresponding interval in train_buckets_scale.
       random_number_01 = np.random.random_sample()
@@ -215,10 +218,12 @@ def train():
       loss += step_loss / FLAGS.steps_per_checkpoint
       current_step += 1
 
-      step_summary = tf.scalar_summary("step-loss", step_loss)
-      loss_summary = tf.scalar_summary("loss", loss)
+      #step_summary = tf.scalar_summary("step-loss", step_loss)
+      #loss_summary = tf.scalar_summary("loss", loss)
       ##################################################################################################################################### LOG HERE JONIS! :D
       ######################### the summary variables will probably not work yet, need some more magic.
+      if(current_step%250 == 0):
+        logFile.write(str(current_step)+" "+str(step_loss)+" "+str(loss)+"\n")
 
       # Once in a while, we save checkpoint, print statistics, and run evals.
       if current_step % FLAGS.steps_per_checkpoint == 0:
