@@ -50,7 +50,8 @@ for root, dirs, files in os.walk(os.getcwd()):
 		if f not in usedMovies:
 			usedMovies.append(f)
 			lines = lines + parseFile(root+"/"+f)
-			print cnt
+			if cnt % 50 == 0:
+				print "Parsing script %d" % cnt
 			cnt += 1
 
 print "================== Creating training and validation data ===================="
