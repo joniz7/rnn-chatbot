@@ -2,7 +2,6 @@ import os
 import random
 import operator
 import sys
-import time
 
 from collections import Counter
 
@@ -54,7 +53,6 @@ print "================== Creating training and validation data ================
 
 random.seed(1234567890)
 totalProb = train_data_size + valid_data_size + test_data_size
-start_time = time.time()
 for i in range(len(lines)-1):
 	utt, resp = (splitApostrophe(lines[i])+"\n", splitApostrophe(lines[i+1])+"\n")
 	ran = random.randint(0,totalProb)
@@ -67,6 +65,5 @@ for i in range(len(lines)-1):
 	else:
 		testInputFile.write(utt)
 		testOutputFile.write(resp)
-end_time = time.time()
+
 print "Done."
-print("Elapsed time was %g seconds" % (end_time - start_time))
