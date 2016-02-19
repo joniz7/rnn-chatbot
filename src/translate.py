@@ -215,6 +215,11 @@ def train():
       loss += step_loss / FLAGS.steps_per_checkpoint
       current_step += 1
 
+      step_summary = tf.scalar_summary("step-loss", step_loss)
+      loss_summary = tf.scalar_summary("loss", loss)
+      ##################################################################################################################################### LOG HERE JONIS! :D
+      ######################### the summary variables will probably not work yet, need some more magic.
+
       # Once in a while, we save checkpoint, print statistics, and run evals.
       if current_step % FLAGS.steps_per_checkpoint == 0:
         # Print statistics for the previous epoch.
