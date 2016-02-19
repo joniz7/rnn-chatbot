@@ -64,8 +64,8 @@ tf.app.flags.DEFINE_float("max_gradient_norm", 5.0,
 tf.app.flags.DEFINE_integer("batch_size", 64,
                             "Batch size to use during training.")
 tf.app.flags.DEFINE_integer("embedding_dimensions", 50, "Dimension of the embedding vectors")
-tf.app.flags.DEFINE_integer("size", 1, "Size of each model layer.")
-tf.app.flags.DEFINE_integer("num_layers", 1, "Number of layers in the model.")
+tf.app.flags.DEFINE_integer("size", 1024, "Size of each model layer.")
+tf.app.flags.DEFINE_integer("num_layers", 3, "Number of layers in the model.")
 tf.app.flags.DEFINE_integer("vocab_size", 30000, "Size of our vocabulary")
 tf.app.flags.DEFINE_string("data_dir", "../data", "Data directory")
 tf.app.flags.DEFINE_string("train_dir", "../data", "Training directory.")
