@@ -153,6 +153,16 @@ def create_model(session, forward_only):
       FLAGS.learning_rate, FLAGS.learning_rate_decay_factor,
       forward_only=forward_only, embedding_dimension=FLAGS.embedding_dimensions,
       initial_accumulator_value=FLAGS.initial_accumulator_value)
+  #ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
+  #if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
+  #  print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
+  #  model.saver.restore(session, ckpt.model_checkpoint_path)
+  #else:
+  #  print("Created model with fresh parameters.")
+  #  session.run(tf.initialize_all_variables())
+  return model
+
+def init_model(model)
   ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
   if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
     print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
@@ -181,7 +191,7 @@ def train():
     train_bucket_sizes = [len(train_set[b]) for b in xrange(len(_buckets))]
     train_total_size = float(sum(train_bucket_sizes))
 
-    def eval_dev_set():
+    def eval_dev_set(model):
       bucket_losses = []
       for bucket_id in xrange(len(_buckets)):
           encoder_inputs, decoder_inputs, target_weights = model.get_batch(
