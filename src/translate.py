@@ -81,7 +81,7 @@ tf.app.flags.DEFINE_boolean("decode", False,
                             "Set to True for interactive decoding.")
 tf.app.flags.DEFINE_boolean("self_test", False,
                             "Run a self-test if this is set to True.")
-tf.app.flags.DEFINE_string("embedding_path", "../data/embeddings.txt", "The path for the file with initial embeddings")
+tf.app.flags.DEFINE_string("embedding_path", "../data/embeddings%d.txt"%tf.app.flags.FLAGS.vocab_size, "The path for the file with initial embeddings")
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -176,8 +176,8 @@ def train():
   """Train a en->fr translation model using WMT data."""
   # Prepare WMT data.
   print("Preparing WMT data in %s" % FLAGS.data_dir)
-  en_train, fr_train, en_dev, fr_dev, _, _ = data_utils.prepare_dialogue_data(
-      FLAGS.data_dir, FLAGS.vocab_size, FLAGS.vocab_size)
+  utte_train, resp_train, utte_dev, resp_dev,_ = data_utils.prepare_dialogue_data(
+      FLAGS.data_dir, FLAGS.vocab_size)
 
   print("open file")
   logFile = open("../data/logs.txt", "w") ########################################################################################## TEMP
@@ -190,8 +190,8 @@ def train():
     # Read data into buckets and compute their sizes.
     print ("Reading development and training data (limit: %d)."
            % FLAGS.max_train_data_size)
-    dev_set = read_data(en_dev, fr_dev)
-    train_set = read_data(en_train, fr_train, FLAGS.max_train_data_size)
+    dev_set = read_data(utte_dev, resp_dev)
+    train_set = read_data(utte_train, resp_train, FLAGS.max_train_data_size)
     train_bucket_sizes = [len(train_set[b]) for b in xrange(len(_buckets))]
     train_total_size = float(sum(train_bucket_sizes))
 
@@ -313,12 +313,9 @@ def decode():
     model.batch_size = 1  # We decode one sentence at a time.
 
     # Load vocabularies.
-    en_vocab_path = os.path.join(FLAGS.data_dir,
+    vocab_path = os.path.join(FLAGS.data_dir,
                                  "vocab%d.utte" % FLAGS.vocab_size)
-    fr_vocab_path = os.path.join(FLAGS.data_dir,
-                                 "vocab%d.resp" % FLAGS.vocab_size)
-    en_vocab, _ = data_utils.initialize_vocabulary(en_vocab_path)
-    _, rev_fr_vocab = data_utils.initialize_vocabulary(fr_vocab_path)
+    vocab, rev_vocab = data_utils.initialize_vocabulary(vocab_path)
 
     # Decode from standard input.
     sys.stdout.write("> ")
@@ -326,7 +323,7 @@ def decode():
     sentence = sys.stdin.readline()
     while sentence:
       # Get token-ids for the input sentence.
-      token_ids = data_utils.sentence_to_token_ids(sentence, en_vocab)
+      token_ids = data_utils.sentence_to_token_ids(sentence, vocab)
       # Which bucket does it belong to?
       bucket_id = min([b for b in xrange(len(_buckets))
                        if _buckets[b][0] > len(token_ids)])
@@ -342,7 +339,7 @@ def decode():
       if data_utils.EOS_ID in outputs:
         outputs = outputs[:outputs.index(data_utils.EOS_ID)]
       # Print out French sentence corresponding to outputs.
-      print(" ".join([rev_fr_vocab[output] for output in outputs]))
+      print(" ".join([rev_vocab[output] for output in outputs]))
       print("> ", end="")
       sys.stdout.flush()
       sentence = sys.stdin.readline()

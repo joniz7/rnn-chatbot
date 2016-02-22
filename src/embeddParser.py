@@ -2,6 +2,15 @@ import sys
 import random
 execfile("statistics.py")
 
+if(len(sys.argv) < 5):
+  print "Not enough arguments"
+  print "Need to specify, in order:"
+  print "Path to vocabulary"
+  print "Size of vocabulary"
+  print "Path to glove vectors"
+  print "Dimension of glove vectors"
+  sys.exit()
+
 def printValues(values):
   res = ""
   for v in values:
@@ -17,13 +26,11 @@ def file_len(fname):
 def unkValues(dim, means, variances):
   return [random.gauss(means[i], variances[i] ** 0.5) for i, _ in enumerate(range(dim))]
 
-if(len(sys.argv) < 3):
-  print "Not enough arguments"
-  sys.exit()
-
 vocabFile = open(sys.argv[1])
-gloveFile = open(sys.argv[2])
-newEmbed = open("../data/embeddings.txt", "w")
+vocabSize = sys.argv[2]
+gloveFile = open(sys.argv[3])
+gloveDimension = sys.argv[4]
+newEmbed = open("../data/embeddings%s.txt"%vocabSize, "w")
 
 vocab = {}
 
@@ -70,10 +77,12 @@ for i, word in enumerate(rowToWord):
   if('embedding' in vocWord):
     newEmbed.write(word+" "+printValues(vocWord['embedding'])+"\n")
   else:
-    newEmbed.write(word+" "+printValues(unkValues(int(sys.argv[3]), means, variances))+"\n")
+    newEmbed.write(word+" "+printValues(unkValues(int(gloveDimension), means, variances))+"\n")
     nem.write(word+"\n")
     notInEmbed += 1
   #if(i%1000 == 0):
     #print str(i)
 
 print "Number of words not in embedd: "+str(notInEmbed)
+newEmbed.flush()
+nem.flush()
