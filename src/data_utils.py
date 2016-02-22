@@ -166,7 +166,7 @@ def data_to_token_ids(data_path, target_path, vocabulary_path,
                                 normalize_digits)
                     tokens_file.write(" ".join([str(tok) for tok in token_ids]) + "\n")
 
-def prepare_dialogue_data(data_dir, utte_vocabulary_size, resp_vocabulary_size):
+def prepare_dialogue_data(data_dir, vocabulary_size):
     """Load dialogue data from data_dir, create vocabularies and tokenize data.
 
     Args:
@@ -188,26 +188,24 @@ def prepare_dialogue_data(data_dir, utte_vocabulary_size, resp_vocabulary_size):
     """
     train_path, valid_path = check_dialogue_sets(data_dir)
     #  Create vocabularies of the appropriate sizes.
-    resp_vocab_path = os.path.join(data_dir, "vocab%d.resp" % resp_vocabulary_size)
-    utte_vocab_path = os.path.join(data_dir, "vocab%d.utte" % utte_vocabulary_size)
-    create_vocabulary(resp_vocab_path, train_path + ".resp", resp_vocabulary_size)
-    create_vocabulary(utte_vocab_path, train_path + ".utte", utte_vocabulary_size)
+    vocab_path = os.path.join(data_dir, "vocab%d" % vocabulary_size)
+    create_vocabulary(vocab_path, train_path+".resp", vocabulary_size)
 
     # Create token ids for the training data.
-    resp_train_ids_path = train_path + (".ids%d.resp" % resp_vocabulary_size)
-    utte_train_ids_path = train_path + (".ids%d.utte" % utte_vocabulary_size)
-    data_to_token_ids(train_path + ".resp", resp_train_ids_path, resp_vocab_path)
-    data_to_token_ids(train_path + ".utte", utte_train_ids_path, utte_vocab_path)
+    resp_train_ids_path = train_path + (".ids%d.resp" % vocabulary_size)
+    utte_train_ids_path = train_path + (".ids%d.utte" % vocabulary_size)
+    data_to_token_ids(train_path + ".resp", resp_train_ids_path, vocab_path)
+    data_to_token_ids(train_path + ".utte", utte_train_ids_path, vocab_path)
 
     # Create token ids for the development data.
-    resp_valid_ids_path = valid_path + (".ids%d.resp" % resp_vocabulary_size)
-    utte_valid_ids_path = valid_path + (".ids%d.utte" % utte_vocabulary_size)
-    data_to_token_ids(valid_path + ".resp", resp_valid_ids_path, resp_vocab_path)
-    data_to_token_ids(valid_path + ".utte", utte_valid_ids_path, utte_vocab_path)
+    resp_valid_ids_path = valid_path + (".ids%d.resp" % vocabulary_size)
+    utte_valid_ids_path = valid_path + (".ids%d.utte" % vocabulary_size)
+    data_to_token_ids(valid_path + ".resp", resp_valid_ids_path, vocab_path)
+    data_to_token_ids(valid_path + ".utte", utte_valid_ids_path, vocab_path)
 
     return (utte_train_ids_path, resp_train_ids_path, 
             utte_valid_ids_path, resp_valid_ids_path,
-            utte_vocab_path, resp_vocab_path)
+            vocab_path)
 
 
 def check_dialogue_sets(directory):
@@ -242,4 +240,3 @@ def check_dialogue_sets(directory):
                 valid_path + responses_suffix)
 
     return (train_path, valid_path)
-    

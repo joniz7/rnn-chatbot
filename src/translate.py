@@ -162,8 +162,8 @@ def train():
   """Train a en->fr translation model using WMT data."""
   # Prepare WMT data.
   print("Preparing WMT data in %s" % FLAGS.data_dir)
-  en_train, fr_train, en_dev, fr_dev, _, _ = data_utils.prepare_dialogue_data(
-      FLAGS.data_dir, FLAGS.vocab_size, FLAGS.vocab_size)
+  utte_train, resp_train, utte_dev, resp_dev,_ = data_utils.prepare_dialogue_data(
+      FLAGS.data_dir, FLAGS.vocab_size)
 
   print("open file")
   logFile = open("../data/logs.txt", "w") ########################################################################################## TEMP
@@ -181,8 +181,8 @@ def train():
     # Read data into buckets and compute their sizes.
     print ("Reading development and training data (limit: %d)."
            % FLAGS.max_train_data_size)
-    dev_set = read_data(en_dev, fr_dev)
-    train_set = read_data(en_train, fr_train, FLAGS.max_train_data_size)
+    dev_set = read_data(utte_dev, resp_dev)
+    train_set = read_data(utte_train, resp_train, FLAGS.max_train_data_size)
     train_bucket_sizes = [len(train_set[b]) for b in xrange(len(_buckets))]
     train_total_size = float(sum(train_bucket_sizes))
 
