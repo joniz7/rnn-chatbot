@@ -222,7 +222,7 @@ def train():
       #loss_summary = tf.scalar_summary("loss", loss)
       ##################################################################################################################################### LOG HERE JONIS! :D
       ######################### the summary variables will probably not work yet, need some more magic.
-      if(current_step%250 == 0):
+      if(current_step%FLAGS.steps_per_checkpoint == 0):
         logFile.write(str(current_step)+" "+str(step_loss)+" "+str(loss)+"\n")
 
       # Once in a while, we save checkpoint, print statistics, and run evals.
