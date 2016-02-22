@@ -196,7 +196,6 @@ def train():
     step_time, loss = 0.0, 0.0
     current_step = 0
     previous_losses = []
-<<<<<<< HEAD
     print("COMMENCE TRAINING!!!!!!")
     try:
       while True:
