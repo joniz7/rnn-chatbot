@@ -64,8 +64,8 @@ tf.app.flags.DEFINE_float("max_gradient_norm", 5.0,
 tf.app.flags.DEFINE_integer("batch_size", 64,
                             "Batch size to use during training.")
 tf.app.flags.DEFINE_integer("embedding_dimensions", 50, "Dimension of the embedding vectors")
-tf.app.flags.DEFINE_integer("size", 1024, "Size of each model layer.")
-tf.app.flags.DEFINE_integer("num_layers", 3, "Number of layers in the model.")
+tf.app.flags.DEFINE_integer("size", 2, "Size of each model layer.")
+tf.app.flags.DEFINE_integer("num_layers", 1, "Number of layers in the model.")
 tf.app.flags.DEFINE_integer("vocab_size", 30000, "Size of our vocabulary")
 tf.app.flags.DEFINE_string("data_dir", "../data", "Data directory")
 tf.app.flags.DEFINE_string("train_dir", "../data", "Training directory.")
@@ -73,7 +73,7 @@ tf.app.flags.DEFINE_integer("max_train_data_size", 0,
                             "Limit on the size of training data (0: no limit).")
 tf.app.flags.DEFINE_integer("steps_per_checkpoint", 200,
                             "How many training steps to do per checkpoint.")
-tf.app.flags.DEFINE_integer("steps_per_summary", 100,
+tf.app.flags.DEFINE_integer("steps_per_summary", 2,
                             "How many training steps to do per summary")
 tf.app.flags.DEFINE_string("summary_path", "../data/summaries",
                             "Directory for summaries")
@@ -162,7 +162,7 @@ def create_model(session, forward_only):
   #  session.run(tf.initialize_all_variables())
   return model
 
-def init_model(model)
+def init_model(session, model):
   ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
   if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
     print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
@@ -183,6 +183,10 @@ def train():
   logFile = open("../data/logs.txt", "w") ########################################################################################## TEMP
 
   with tf.Session() as sess:
+    # Create model.
+    print("Creating %d layers of %d units." % (FLAGS.num_layers, FLAGS.size))
+    model = create_model(sess, False)
+
     # Read data into buckets and compute their sizes.
     print ("Reading development and training data (limit: %d)."
            % FLAGS.max_train_data_size)
@@ -191,7 +195,7 @@ def train():
     train_bucket_sizes = [len(train_set[b]) for b in xrange(len(_buckets))]
     train_total_size = float(sum(train_bucket_sizes))
 
-    def eval_dev_set(model):
+    def eval_dev_set():
       bucket_losses = []
       for bucket_id in xrange(len(_buckets)):
           encoder_inputs, decoder_inputs, target_weights = model.get_batch(
@@ -203,21 +207,20 @@ def train():
           print("  eval: bucket %d perplexity %.2f" % (bucket_id, eval_ppx))
       return bucket_losses
 
-    buck_losses = eval_dev_set()
-    average_bucket_loss = 0 #################### SET THIS
+    # Setting up summaries
+    buck_losses = tf.placeholder(tf.float32, [len(_buckets)], name="buck_losses")#eval_dev_set()
+    average_bucket_loss = tf.placeholder(tf.float32, [], name="average_bucket_loss")
+    learn_rate_placeholder = tf.placeholder(tf.float32, [], name="learn_rate_placeholder")
     eval_loss_summary = tf.histogram_summary("eval_bucket_losses", buck_losses)
     eval_avg_loss_summary = tf.scalar_summary("eval_bucket_average_losses",
           average_bucket_loss)
-    learning_rate_summary = tf.scalar_summary("learning_rate", model.learning_rate)
+    learning_rate_summary = tf.scalar_summary("learning_rate", learn_rate_placeholder)
     merged = tf.merge_all_summaries()
     writer = tf.train.SummaryWriter(FLAGS.summary_path, sess.graph_def)
 
+    model = init_model(sess, model)
 
-    # Create model.
-    print("Creating %d layers of %d units." % (FLAGS.num_layers, FLAGS.size))
-    model = create_model(sess, False)
     #inject_embeddings(FLAGS.embedding_path) Dunno why this doesn't work
-
     with tf.variable_scope("embedding_attention_seq2seq/embedding"): #Inject the embeddings
       embedding = tf.get_variable("embedding")
       sess.run(embedding.assign(parseEmbeddings(FLAGS.embedding_path)))  
@@ -264,8 +267,11 @@ def train():
         ######################### the summary variables will probably not work yet, need some more magic.
         if(current_step%FLAGS.steps_per_summary == 0):
           logFile.write(str(current_step)+" "+str(step_loss)+" "+str(loss)+"\n")
-
-          summary_str = sess.run(merged)
+          eval_losses = eval_dev_set()
+          feed = {buck_losses: eval_losses, 
+                  learn_rate_placeholder: model.learning_rate,
+                  average_bucket_loss: 0.0}
+          summary_str = sess.run(merged, feed_dict=feed)
           writer.add_summary(summary_str, current_step)
 
         # Once in a while, we save checkpoint, print statistics, and run evals.
@@ -295,6 +301,8 @@ def train():
     except KeyboardInterrupt:
       print("Training stopped at step %d"%current_step)
       model.saver.save(sess, checkpoint_path, global_step=model.global_step)
+      writer.flush()
+      writer.close()
 
 
 def decode():
