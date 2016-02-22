@@ -73,6 +73,10 @@ tf.app.flags.DEFINE_integer("max_train_data_size", 0,
                             "Limit on the size of training data (0: no limit).")
 tf.app.flags.DEFINE_integer("steps_per_checkpoint", 200,
                             "How many training steps to do per checkpoint.")
+tf.app.flags.DEFINE_integer("steps_per_summary", 100,
+                            "How many training steps to do per summary")
+tf.app.flags.DEFINE_string("summary_path", "../data/summaries",
+                            "Directory for summaries")
 tf.app.flags.DEFINE_boolean("decode", False,
                             "Set to True for interactive decoding.")
 tf.app.flags.DEFINE_boolean("self_test", False,
@@ -169,6 +173,36 @@ def train():
   logFile = open("../data/logs.txt", "w") ########################################################################################## TEMP
 
   with tf.Session() as sess:
+    # Read data into buckets and compute their sizes.
+    print ("Reading development and training data (limit: %d)."
+           % FLAGS.max_train_data_size)
+    dev_set = read_data(en_dev, fr_dev)
+    train_set = read_data(en_train, fr_train, FLAGS.max_train_data_size)
+    train_bucket_sizes = [len(train_set[b]) for b in xrange(len(_buckets))]
+    train_total_size = float(sum(train_bucket_sizes))
+
+    def eval_dev_set():
+      bucket_losses = []
+      for bucket_id in xrange(len(_buckets)):
+          encoder_inputs, decoder_inputs, target_weights = model.get_batch(
+              dev_set, bucket_id)
+          _, eval_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
+                                       target_weights, bucket_id, True)
+          bucket_losses.append(eval_loss)
+          eval_ppx = math.exp(eval_loss) if eval_loss < 300 else float('inf')
+          print("  eval: bucket %d perplexity %.2f" % (bucket_id, eval_ppx))
+      return bucket_losses
+
+    buck_losses = eval_dev_set()
+    average_bucket_loss = 0 #################### SET THIS
+    eval_loss_summary = tf.histogram_summary("eval_bucket_losses", buck_losses)
+    eval_avg_loss_summary = tf.scalar_summary("eval_bucket_average_losses",
+          average_bucket_loss)
+    learning_rate_summary = tf.scalar_summary("learning_rate", model.learning_rate)
+    merged = tf.merge_all_summaries()
+    writer = tf.train.SummaryWriter(FLAGS.summary_path, sess.graph_def)
+
+
     # Create model.
     print("Creating %d layers of %d units." % (FLAGS.num_layers, FLAGS.size))
     model = create_model(sess, False)
@@ -178,13 +212,6 @@ def train():
       embedding = tf.get_variable("embedding")
       sess.run(embedding.assign(parseEmbeddings(FLAGS.embedding_path)))  
 
-    # Read data into buckets and compute their sizes.
-    print ("Reading development and training data (limit: %d)."
-           % FLAGS.max_train_data_size)
-    dev_set = read_data(en_dev, fr_dev)
-    train_set = read_data(en_train, fr_train, FLAGS.max_train_data_size)
-    train_bucket_sizes = [len(train_set[b]) for b in xrange(len(_buckets))]
-    train_total_size = float(sum(train_bucket_sizes))
 
     # A bucket scale is a list of increasing numbers from 0 to 1 that we'll use
     # to select a bucket. Length of [scale[i], scale[i+1]] is proportional to
@@ -196,7 +223,7 @@ def train():
     step_time, loss = 0.0, 0.0
     current_step = 0
     previous_losses = []
-<<<<<<< HEAD
+
     print("COMMENCE TRAINING!!!!!!")
     try:
       while True:
@@ -225,8 +252,11 @@ def train():
         #loss_summary = tf.scalar_summary("loss", loss)
         ##################################################################################################################################### LOG HERE JONIS! :D
         ######################### the summary variables will probably not work yet, need some more magic.
-        if(current_step%FLAGS.steps_per_checkpoint == 0):
+        if(current_step%FLAGS.steps_per_summary == 0):
           logFile.write(str(current_step)+" "+str(step_loss)+" "+str(loss)+"\n")
+
+          summary_str = sess.run(merged)
+          writer.add_summary(summary_str, current_step)
 
         # Once in a while, we save checkpoint, print statistics, and run evals.
         if current_step % FLAGS.steps_per_checkpoint == 0:
@@ -244,13 +274,13 @@ def train():
           model.saver.save(sess, checkpoint_path, global_step=model.global_step)
           step_time, loss = 0.0, 0.0
           # Run evals on development set and print their perplexity.
-          for bucket_id in xrange(len(_buckets)):
-            encoder_inputs, decoder_inputs, target_weights = model.get_batch(
-                dev_set, bucket_id)
-            _, eval_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
-                                         target_weights, bucket_id, True)
-            eval_ppx = math.exp(eval_loss) if eval_loss < 300 else float('inf')
-            print("  eval: bucket %d perplexity %.2f" % (bucket_id, eval_ppx))
+          #for bucket_id in xrange(len(_buckets)):
+          #  encoder_inputs, decoder_inputs, target_weights = model.get_batch(
+          #      dev_set, bucket_id)
+          #  _, eval_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
+          #                               target_weights, bucket_id, True)
+          #  eval_ppx = math.exp(eval_loss) if eval_loss < 300 else float('inf')
+          #  print("  eval: bucket %d perplexity %.2f" % (bucket_id, eval_ppx))
           sys.stdout.flush()
     except KeyboardInterrupt:
       print("Training stopped at step %d"%current_step)
