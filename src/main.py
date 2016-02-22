@@ -26,7 +26,7 @@ import os
 import sys
 
 # Parameters
-vocab_size = 30000
+vocab_size = 300
 embedding_dimension = 50
 
 # percentage of partitions between training, validation and test data respectively
@@ -52,7 +52,7 @@ print "================== Checking if vocabulary exists ===================="
 if(reduce(operator.and_, map(os.path.isfile, vocabFiles))):
   print "Exists, moving on"
 else:
-  data_utils.prepare_dialogue_data(data_path, vocab_size, vocab_size)
+  data_utils.prepare_dialogue_data(data_path, vocab_size)
 
 gloveFile = data_path+"/glove.6B."+str(embedding_dimension)+"d.txt"
 
@@ -64,7 +64,7 @@ else:
     print "Embeddings exists"
   else:
     print "Creating embeddings"
-    sys.argv = ["embeddParser.py", vocabFiles[0], gloveFile, embedding_dimension]
+    sys.argv = ["embeddParser.py", vocabFiles[0], vocab_size,gloveFile, embedding_dimension]
     execfile("embeddParser.py")
 
 
