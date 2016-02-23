@@ -227,8 +227,12 @@ def check_dialogue_sets(directory):
     responses_suffix = ".resp"
     train_path = os.path.join(directory, train_name)
     valid_path = os.path.join(directory, valid_name)
-    if not (gfile.Exists(train_path + utterances_suffix)):
+
+    if not os.path.isfile(train_path + utterances_suffix):
+        print("file not exist :( %s"%(train_path + utterances_suffix))
         raise ValueError("Training file %s not found.", train_path + utterances_suffix)
+    #if not (gfile.Exists(train_path + utterances_suffix)):
+        
     if not (gfile.Exists(train_path + responses_suffix)):
         raise ValueError("Training file %s not found.", 
                 train_path + responses_suffix)

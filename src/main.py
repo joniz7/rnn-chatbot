@@ -47,9 +47,14 @@ else:
   execfile("browse.py")
 
 
+print "////////////////////////////////////////////"
+print os.getcwd()
+print str(os.path.isfile("../data/train-data.utte"))
+print "////////////////////////////////////////////"
+
 vocabFiles = [data_path+"/vocab"+str(vocab_size), data_path+"/vocab"+str(vocab_size)+".utte"]
 print "================== Checking if vocabulary exists ===================="
-raw_input()
+
 if(reduce(operator.and_, map(os.path.isfile, vocabFiles))):
   print "Exists, moving on"
 else:

@@ -22,6 +22,11 @@ def splitApostrophe(line):
 trainInputFile = open("../data/train-data.utte", "w")
 trainOutputFile = open("../data/train-data.resp", "w")
 
+print "////////////////////////////////////////////"
+print os.getcwd()
+print str(os.path.isfile("../data/train-data.utte"))
+print "////////////////////////////////////////////"
+
 validInputFile = open("../data/valid-data.utte", "w")
 validOutputFile = open("../data/valid-data.resp", "w")
 
@@ -56,6 +61,7 @@ for root, dirs, files in os.walk(os.getcwd()):
 
 print "================== Creating training and validation data ===================="
 
+# So the distribution will be deterministic
 random.seed(1234567890)
 totalProb = train_data_percentage + valid_data_percentage + test_data_percentage
 for i in range(len(lines)-1):
@@ -73,9 +79,12 @@ for i in range(len(lines)-1):
 
 print "Done."
 
+os.chdir("../../src")
+
 trainInputFile.close()
 trainOutputFile.close()
 validInputFile.close()
 validOutputFile.close()
 testInputFile.close()
 testOutputFile.close()
+
