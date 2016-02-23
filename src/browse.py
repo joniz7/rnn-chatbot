@@ -72,3 +72,10 @@ for i in range(len(lines)-1):
 		testOutputFile.write(resp)
 
 print "Done."
+
+trainInputFile.close()
+trainOutputFile.close()
+validInputFile.close()
+validOutputFile.close()
+testInputFile.close()
+testOutputFile.close()
