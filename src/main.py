@@ -25,17 +25,46 @@ import operator
 import os
 import sys
 
+"""
+Following flags can be set when run:
+--vocab_size
+--embedding_dimension
+--embeddings_filename
+--data_path
+"""
+
 # Parameters
 vocab_size = 300
 embedding_dimension = 50
+embeddings_filename = "embeddings"+str(vocab_size)+".txt"
+data_path = "../data"
+
+for arg in sys.argv[1:]:
+  arg = arg.split("=")
+  if(arg[0][:2] == "--"):
+    if(arg[0][2:] == "vocab_size"):
+      print "vocab_size "+arg[1]
+      vocab_size = int(arg[1])
+    elif(arg[0][2:] == "embedding_dimension"):
+      print "embedding_dimension "+arg[1]
+      embedding_dimension = int(arg[1])
+    elif(arg[0][2:] == "embeddings_filename"):
+      print "embeddings_filename "+arg[1]
+      embeddings_filename = str(arg[1])
+    elif(arg[0][2:] == "data_path"):
+      print "data_path "+arg[1]
+      data_path = int(arg[1])
+    else:
+      print "Bad format on flag %s"%arg[0]
+      sys.exit()
+  else:
+    print "Bad format on flag %s"%arg[0]
+    sys.exit()
 
 # percentage of partitions between training, validation and test data respectively
 train_data_percentage = 50
 valid_data_percentage = 25
 test_data_percentage = 25
-
-embeddings_filename = "embeddings"+str(vocab_size)+".txt"
-data_path = "../data"
 
 trainingFiles = [data_path+"/train-data.utte", data_path+"/train-data.resp", data_path+"/valid-data.utte", data_path+"/valid-data.resp"]
 
@@ -70,7 +99,7 @@ else:
     print "Embeddings exists"
   else:
     print "Creating embeddings"
-    sys.argv = ["embeddParser.py", vocabFiles[0], vocab_size ,gloveFile, embedding_dimension]
+    sys.argv = ["embeddParser.py", vocabFiles[0], vocab_size ,gloveFile, embedding_dimension, embeddings_filename]
     execfile("embeddParser.py")
 
 
