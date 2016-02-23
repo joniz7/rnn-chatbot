@@ -34,7 +34,7 @@ train_data_percentage = 50
 valid_data_percentage = 25
 test_data_percentage = 25
 
-embeddings_filename = "embeddings.txt"
+embeddings_filename = "embeddings"+str(vocab_size)+".txt"
 data_path = "../data"
 
 trainingFiles = [data_path+"/train-data.utte", data_path+"/train-data.resp", data_path+"/valid-data.utte", data_path+"/valid-data.resp"]
@@ -47,8 +47,9 @@ else:
   execfile("browse.py")
 
 
-vocabFiles = [data_path+"/vocab"+str(vocab_size)+".resp", data_path+"/vocab"+str(vocab_size)+".utte"]
+vocabFiles = [data_path+"/vocab"+str(vocab_size), data_path+"/vocab"+str(vocab_size)+".utte"]
 print "================== Checking if vocabulary exists ===================="
+raw_input()
 if(reduce(operator.and_, map(os.path.isfile, vocabFiles))):
   print "Exists, moving on"
 else:
@@ -64,7 +65,7 @@ else:
     print "Embeddings exists"
   else:
     print "Creating embeddings"
-    sys.argv = ["embeddParser.py", vocabFiles[0], vocab_size,gloveFile, embedding_dimension]
+    sys.argv = ["embeddParser.py", vocabFiles[0], vocab_size ,gloveFile, embedding_dimension]
     execfile("embeddParser.py")
 
 

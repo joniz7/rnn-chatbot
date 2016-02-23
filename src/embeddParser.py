@@ -84,5 +84,5 @@ for i, word in enumerate(rowToWord):
     #print str(i)
 
 print "Number of words not in embedd: "+str(notInEmbed)
-newEmbed.flush()
-nem.flush()
+newEmbed.close()
+nem.close()
