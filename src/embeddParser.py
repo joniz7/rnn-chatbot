@@ -9,6 +9,7 @@ if(len(sys.argv) < 5):
   print "Size of vocabulary"
   print "Path to glove vectors"
   print "Dimension of glove vectors"
+  print "Target filename (optional)"
   sys.exit()
 
 def printValues(values):
@@ -30,7 +31,8 @@ vocabFile = open(sys.argv[1])
 vocabSize = sys.argv[2]
 gloveFile = open(sys.argv[3])
 gloveDimension = sys.argv[4]
-newEmbed = open("../data/embeddings%s.txt"%vocabSize, "w")
+embeddingFilename = ("../data/embeddings%s.txt"%vocabSize) if len(sys.argv)==5 else sys.argv[5]
+newEmbed = open(embeddingFilename, "w")
 
 vocab = {}
 

@@ -252,6 +252,9 @@ def train():
     previous_losses = []
 
     print("COMMENCE TRAINING!!!!!!")
+
+    # create checkpoint_path
+    checkpoint_path = os.path.join(FLAGS.train_dir, "translate.ckpt")
     try:
       while True:
         """with tf.variable_scope("embedding_attention_seq2seq/embedding"):
@@ -306,8 +309,8 @@ def train():
           if len(previous_losses) > 2 and loss > max(previous_losses[-3:]):
             sess.run(model.learning_rate_decay_op)
           previous_losses.append(loss)
-          # Save checkpoint and zero timer and loss.
-          checkpoint_path = os.path.join(FLAGS.train_dir, "translate.ckpt")
+          
+          # Save checkpoint and zero timer and loss.      
           model.saver.save(sess, checkpoint_path, global_step=model.global_step)
           step_time, loss = 0.0, 0.0
           # Run evals on development set and print their perplexity.
