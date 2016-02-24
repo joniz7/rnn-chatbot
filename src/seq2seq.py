@@ -459,7 +459,6 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
 
   return outputs, states
 
-
 def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
                                 cell, num_symbols, num_heads=1,
                                 output_size=None, output_projection=None,

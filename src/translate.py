@@ -268,7 +268,7 @@ def decode():
 
     # Load vocabularies.
     vocab_path = os.path.join(FLAGS.data_dir,
-                                 "vocab%d.utte" % FLAGS.vocab_size)
+                                 "vocab%d" % FLAGS.vocab_size)
     vocab, rev_vocab = data_utils.initialize_vocabulary(vocab_path)
 
     # Decode from standard input.
@@ -284,6 +284,7 @@ def decode():
       # Get a 1-element batch to feed the sentence to the model.
       encoder_inputs, decoder_inputs, target_weights = model.get_batch(
           {bucket_id: [(token_ids, [])]}, bucket_id)
+
       # Get output logits for the sentence.
       _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
                                        target_weights, bucket_id, True)
