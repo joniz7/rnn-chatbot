@@ -73,6 +73,10 @@ tf.app.flags.DEFINE_integer("max_train_data_size", 0,
                             "Limit on the size of training data (0: no limit).")
 tf.app.flags.DEFINE_integer("steps_per_checkpoint", 200,
                             "How many training steps to do per checkpoint.")
+tf.app.flags.DEFINE_integer("steps_per_summary", 50,
+                            "How many training steps to do per summary")
+tf.app.flags.DEFINE_string("summary_path", "../data/summaries",
+                            "Directory for summaries")
 tf.app.flags.DEFINE_boolean("decode", False,
                             "Set to True for interactive decoding.")
 tf.app.flags.DEFINE_boolean("self_test", False,
@@ -149,6 +153,16 @@ def create_model(session, forward_only):
       FLAGS.learning_rate, FLAGS.learning_rate_decay_factor,
       forward_only=forward_only, embedding_dimension=FLAGS.embedding_dimensions,
       initial_accumulator_value=FLAGS.initial_accumulator_value)
+  #ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
+  #if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
+  #  print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
+  #  model.saver.restore(session, ckpt.model_checkpoint_path)
+  #else:
+  #  print("Created model with fresh parameters.")
+  #  session.run(tf.initialize_all_variables())
+  return model
+
+def init_model(session, model):
   ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
   if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
     print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
@@ -165,18 +179,10 @@ def train():
   utte_train, resp_train, utte_dev, resp_dev,_ = data_utils.prepare_dialogue_data(
       FLAGS.data_dir, FLAGS.vocab_size)
 
-  print("open file")
-  logFile = open("../data/logs.txt", "w") ########################################################################################## TEMP
-
   with tf.Session() as sess:
     # Create model.
     print("Creating %d layers of %d units." % (FLAGS.num_layers, FLAGS.size))
     model = create_model(sess, False)
-    #inject_embeddings(FLAGS.embedding_path) Dunno why this doesn't work
-
-    with tf.variable_scope("embedding_attention_seq2seq/embedding"): #Inject the embeddings
-      embedding = tf.get_variable("embedding")
-      sess.run(embedding.assign(parseEmbeddings(FLAGS.embedding_path)))  
 
     # Read data into buckets and compute their sizes.
     print ("Reading development and training data (limit: %d)."
@@ -186,16 +192,65 @@ def train():
     train_bucket_sizes = [len(train_set[b]) for b in xrange(len(_buckets))]
     train_total_size = float(sum(train_bucket_sizes))
 
+    def eval_dev_set():
+      bucket_losses = []
+      for bucket_id in xrange(len(_buckets)):
+          encoder_inputs, decoder_inputs, target_weights = model.get_batch(
+              dev_set, bucket_id)
+          _, eval_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
+                                       target_weights, bucket_id, True)
+          bucket_losses.append(eval_loss)
+          #eval_ppx = math.exp(eval_loss) if eval_loss < 300 else float('inf')
+          #print("  eval: bucket %d perplexity %.2f" % (bucket_id, eval_ppx))
+      return bucket_losses
+
+    def perplexity(loss):
+      ppx = math.exp(loss) if loss < 300 else float('inf')
+      return ppx
+
+    # Setting up summaries
+    buck_losses = tf.placeholder(tf.float32, shape=[len(_buckets)], name="buck_losses")#eval_dev_set()
+    average_bucket_loss = tf.placeholder(tf.float32, name="average_bucket_loss")
+    train_losses = tf.placeholder(tf.float32, name="train_losses")
+    eval_ppx = tf.placeholder(tf.float32, name="eval_ppx")
+    train_ppx = tf.placeholder(tf.float32, name="train_ppx")
+
+    eval_loss_summary = tf.histogram_summary("eval_bucket_losses", buck_losses)
+    eval_avg_loss_summary = tf.scalar_summary("eval_bucket_average_losses",
+          average_bucket_loss)
+    learning_rate_summary = tf.scalar_summary("learning_rate", model.learning_rate)
+    train_avg_loss_summary = tf.scalar_summary("train_losses_avg", train_losses)
+    eval_ppx_summary = tf.scalar_summary("eval_ppx_avg", eval_ppx)
+    train_ppx_summary = tf.scalar_summary("train_ppx_avg", train_ppx)
+    merged = tf.merge_all_summaries()
+    writer = tf.train.SummaryWriter(FLAGS.summary_path, sess.graph_def)
+
+
+    model = init_model(sess, model)
+
+    #inject_embeddings(FLAGS.embedding_path) Dunno why this doesn't work
+    with tf.variable_scope("embedding_attention_seq2seq/embedding"): #Inject the embeddings
+      embedding = tf.get_variable("embedding")
+      sess.run(embedding.assign(parseEmbeddings(FLAGS.embedding_path)))  
+
+
     # A bucket scale is a list of increasing numbers from 0 to 1 that we'll use
     # to select a bucket. Length of [scale[i], scale[i+1]] is proportional to
     # the size if i-th training bucket, as used later.
     train_buckets_scale = [sum(train_bucket_sizes[:i + 1]) / train_total_size
                            for i in xrange(len(train_bucket_sizes))]
 
+    # The sizes of the buckets normalized to 1, such that: 
+    # sum(train_buckets_dist) == 1.0
+    train_buckets_dist = [train_bucket_sizes[i] / train_total_size 
+                          for i in xrange(len(train_bucket_sizes))]
+
     # This is the training loop.
     step_time, loss = 0.0, 0.0
+    train_loss_per_summary = 0.0
     current_step = 0
     previous_losses = []
+
     print("COMMENCE TRAINING!!!!!!")
 
     # create checkpoint_path
@@ -221,22 +276,35 @@ def train():
                                      target_weights, bucket_id, False)
         step_time += (time.time() - start_time) / FLAGS.steps_per_checkpoint
         loss += step_loss / FLAGS.steps_per_checkpoint
+        # Collecting average loss over each summary
+        train_loss_per_summary += step_loss / FLAGS.steps_per_summary
         current_step += 1
 
-        #step_summary = tf.scalar_summary("step-loss", step_loss)
-        #loss_summary = tf.scalar_summary("loss", loss)
-        ##################################################################################################################################### LOG HERE JONIS! :D
-        ######################### the summary variables will probably not work yet, need some more magic.
-        if(current_step%FLAGS.steps_per_checkpoint == 0):
-          logFile.write(str(current_step)+" "+str(step_loss)+" "+str(loss)+"\n")
+        if(current_step%FLAGS.steps_per_summary == 0):
+          print ("Writing summary for step %d" % current_step)
+          
+          eval_losses = np.asarray(eval_dev_set())
+          current_avg_buck_loss = 0.0
+          for b in xrange(len(_buckets)):
+            current_avg_buck_loss += train_buckets_dist[b] * eval_losses[b]
+          current_eval_ppx = perplexity(current_avg_buck_loss)
+          current_train_ppx = perplexity(train_loss_per_summary)
+          feed = {buck_losses: eval_losses, 
+                  eval_ppx: current_eval_ppx,
+                  train_ppx: current_train_ppx,
+                  average_bucket_loss: current_avg_buck_loss,
+                  train_losses: train_loss_per_summary}
+          summary_str = sess.run(merged, feed_dict=feed)
+          writer.add_summary(summary_str, current_step)
+          train_loss_per_summary = 0.0
 
         # Once in a while, we save checkpoint, print statistics, and run evals.
         if current_step % FLAGS.steps_per_checkpoint == 0:
           # Print statistics for the previous epoch.
-          perplexity = math.exp(loss) if loss < 300 else float('inf')
+          # math.exp(loss) if loss < 300 else float('inf')
           print ("global step %d learning rate %.4f step-time %.2f perplexity "
                  "%.2f" % (model.global_step.eval(), model.learning_rate.eval(),
-                           step_time, perplexity))
+                           step_time, perplexity(loss)))
           # Decrease learning rate if no improvement was seen over last 3 times.
           if len(previous_losses) > 2 and loss > max(previous_losses[-3:]):
             sess.run(model.learning_rate_decay_op)
@@ -246,17 +314,19 @@ def train():
           model.saver.save(sess, checkpoint_path, global_step=model.global_step)
           step_time, loss = 0.0, 0.0
           # Run evals on development set and print their perplexity.
-          for bucket_id in xrange(len(_buckets)):
-            encoder_inputs, decoder_inputs, target_weights = model.get_batch(
-                dev_set, bucket_id)
-            _, eval_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
-                                         target_weights, bucket_id, True)
-            eval_ppx = math.exp(eval_loss) if eval_loss < 300 else float('inf')
-            print("  eval: bucket %d perplexity %.2f" % (bucket_id, eval_ppx))
+          #for bucket_id in xrange(len(_buckets)):
+          #  encoder_inputs, decoder_inputs, target_weights = model.get_batch(
+          #      dev_set, bucket_id)
+          #  _, eval_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
+          #                               target_weights, bucket_id, True)
+          #  eval_ppx = math.exp(eval_loss) if eval_loss < 300 else float('inf')
+          #  print("  eval: bucket %d perplexity %.2f" % (bucket_id, eval_ppx))
           sys.stdout.flush()
     except KeyboardInterrupt:
       print("Training stopped at step %d"%current_step)
       model.saver.save(sess, checkpoint_path, global_step=model.global_step)
+      writer.flush()
+      writer.close()
 
 
 def decode():
