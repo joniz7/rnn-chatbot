@@ -36,7 +36,6 @@ Following flags can be set when run:
 # Parameters
 vocab_size = 30000
 embedding_dimension = 50
-embeddings_filename = "embeddings"+str(vocab_size)+".txt"
 data_path = "../data"
 
 for arg in sys.argv[1:]:
@@ -60,6 +59,8 @@ for arg in sys.argv[1:]:
   else:
     print "Bad format on flag %s"%arg[0]
     sys.exit()
+
+embeddings_filename = "embeddings"+str(vocab_size)+".txt"
 
 # percentage of partitions between training, validation and test data respectively
 train_data_percentage = 50
