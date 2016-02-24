@@ -34,7 +34,7 @@ Following flags can be set when run:
 """
 
 # Parameters
-vocab_size = 300
+vocab_size = 30000
 embedding_dimension = 50
 embeddings_filename = "embeddings"+str(vocab_size)+".txt"
 data_path = "../data"
@@ -66,6 +66,9 @@ train_data_percentage = 50
 valid_data_percentage = 25
 test_data_percentage = 25
 
+print "Running main with parameters:"
+print "vocab_size: %d\nembedding_dimension: %d\nembeddings_filename: %s\ndata_path: %s"%(vocab_size, embedding_dimension, embeddings_filename, data_path)
+
 trainingFiles = [data_path+"/train-data.utte", data_path+"/train-data.resp", data_path+"/valid-data.utte", data_path+"/valid-data.resp"]
 
 print "================== Checking if training and validation data exists ===================="
@@ -74,12 +77,6 @@ if(reduce(operator.and_, map(os.path.isfile, trainingFiles))):
 else:
   sys.argv = ["browse.py", train_data_percentage, valid_data_percentage, test_data_percentage]
   execfile("browse.py")
-
-
-print "////////////////////////////////////////////"
-print os.getcwd()
-print str(os.path.isfile("../data/train-data.utte"))
-print "////////////////////////////////////////////"
 
 vocabFiles = [data_path+"/vocab"+str(vocab_size), data_path+"/vocab"+str(vocab_size)+".utte"]
 print "================== Checking if vocabulary exists ===================="
@@ -99,7 +96,7 @@ else:
     print "Embeddings exists"
   else:
     print "Creating embeddings"
-    sys.argv = ["embeddParser.py", vocabFiles[0], vocab_size ,gloveFile, embedding_dimension, embeddings_filename]
+    sys.argv = ["embeddParser.py", vocabFiles[0], vocab_size ,gloveFile, embedding_dimension, data_path+"/"+embeddings_filename]
     execfile("embeddParser.py")
 
 

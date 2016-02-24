@@ -31,7 +31,7 @@ vocabFile = open(sys.argv[1])
 vocabSize = sys.argv[2]
 gloveFile = open(sys.argv[3])
 gloveDimension = sys.argv[4]
-embeddingFilename = ("../data/embeddings%s.txt"%vocabSize) if len(sys.argv==5) else sys.argv[5]
+embeddingFilename = ("../data/embeddings%s.txt"%vocabSize) if len(sys.argv)==5 else sys.argv[5]
 newEmbed = open(embeddingFilename, "w")
 
 vocab = {}

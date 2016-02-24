@@ -29,11 +29,6 @@ def splitApostrophe(line):
 trainInputFile = open("../data/train-data.utte", "w")
 trainOutputFile = open("../data/train-data.resp", "w")
 
-print "////////////////////////////////////////////"
-print os.getcwd()
-print str(os.path.isfile("../data/train-data.utte"))
-print "////////////////////////////////////////////"
-
 validInputFile = open("../data/valid-data.utte", "w")
 validOutputFile = open("../data/valid-data.resp", "w")
 
