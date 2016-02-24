@@ -93,12 +93,12 @@ for i in range(len(lines)-1):
 if generateCorpusInfo:
 	longest.sort(key=itemgetter(1))
 
-	longFile = open("longest.txt", "w")
+	longFile = open("../data/longest.txt", "w")
 	longFile.truncate()
-	longnumFile = open("longnum.txt", "w")
+	longnumFile = open("../data/longnum.txt", "w")
 	longnumFile.truncate()
 
-	lengthFile = open("lengths.txt", "w")
+	lengthFile = open("../data/lengths.txt", "w")
 	lengthFile.truncate()
 
 	longFile.write(lines[longest[-1][0]])
