@@ -179,9 +179,6 @@ def train():
   utte_train, resp_train, utte_dev, resp_dev,_ = data_utils.prepare_dialogue_data(
       FLAGS.data_dir, FLAGS.vocab_size)
 
-  print("open file")
-  logFile = open("../data/logs.txt", "w") ########################################################################################## TEMP
-
   with tf.Session() as sess:
     # Create model.
     print("Creating %d layers of %d units." % (FLAGS.num_layers, FLAGS.size))
@@ -203,20 +200,29 @@ def train():
           _, eval_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
                                        target_weights, bucket_id, True)
           bucket_losses.append(eval_loss)
-          eval_ppx = math.exp(eval_loss) if eval_loss < 300 else float('inf')
-          print("  eval: bucket %d perplexity %.2f" % (bucket_id, eval_ppx))
+          #eval_ppx = math.exp(eval_loss) if eval_loss < 300 else float('inf')
+          #print("  eval: bucket %d perplexity %.2f" % (bucket_id, eval_ppx))
       return bucket_losses
+
+    def perplexity(loss):
+      ppx = math.exp(loss) if loss < 300 else float('inf')
+      return ppx
 
     # Setting up summaries
     buck_losses = tf.placeholder(tf.float32, shape=[len(_buckets)], name="buck_losses")#eval_dev_set()
-    ##average_bucket_loss = tf.placeholder(tf.float32, name="average_bucket_loss")
-    ##learn_rate_placeholder = tf.placeholder(tf.float32, name="learn_rate_placeholder")
+    average_bucket_loss = tf.placeholder(tf.float32, name="average_bucket_loss")
+    train_losses = tf.placeholder(tf.float32, name="train_losses")
+    eval_ppx = tf.placeholder(tf.float32, name="eval_ppx")
+
     eval_loss_summary = tf.histogram_summary("eval_bucket_losses", buck_losses)
-    ##eval_avg_loss_summary = tf.scalar_summary("eval_bucket_average_losses",
-    ##      average_bucket_loss)
-    ##learning_rate_summary = tf.scalar_summary("learning_rate", learn_rate_placeholder)
+    eval_avg_loss_summary = tf.scalar_summary("eval_bucket_average_losses",
+          average_bucket_loss)
+    learning_rate_summary = tf.scalar_summary("learning_rate", model.learning_rate)
+    train_avg_loss_summary = tf.scalar_summary("train_losses_avg", train_losses)
+    eval_ppx_summary = tf.scalar_summary("eval_ppx_avg", eval_ppx)
     merged = tf.merge_all_summaries()
     writer = tf.train.SummaryWriter(FLAGS.summary_path, sess.graph_def)
+
 
     model = init_model(sess, model)
 
@@ -232,8 +238,14 @@ def train():
     train_buckets_scale = [sum(train_bucket_sizes[:i + 1]) / train_total_size
                            for i in xrange(len(train_bucket_sizes))]
 
+    # The sizes of the buckets normalized to 1, such that: 
+    # sum(train_buckets_dist) == 1.0
+    train_buckets_dist = [train_bucket_sizes[i] / train_total_size 
+                          for i in xrange(len(train_bucket_sizes))]
+
     # This is the training loop.
     step_time, loss = 0.0, 0.0
+    train_loss_per_summary = 0.0
     current_step = 0
     previous_losses = []
 
@@ -259,27 +271,31 @@ def train():
                                      target_weights, bucket_id, False)
         step_time += (time.time() - start_time) / FLAGS.steps_per_checkpoint
         loss += step_loss / FLAGS.steps_per_checkpoint
+        # Collecting average loss over each summary
+        train_loss_per_summary += step_loss / FLAGS.steps_per_summary
         current_step += 1
 
-        #step_summary = tf.scalar_summary("step-loss", step_loss)
-        #loss_summary = tf.scalar_summary("loss", loss)
-        ##################################################################################################################################### LOG HERE JONIS! :D
-        ######################### the summary variables will probably not work yet, need some more magic.
         if(current_step%FLAGS.steps_per_summary == 0):
-          logFile.write(str(current_step)+" "+str(step_loss)+" "+str(loss)+"\n")
+          print ("Writing summary for step %d" % current_step)
+          
           eval_losses = np.asarray(eval_dev_set())
-          for iLoss in eval_losses:
-            print (iLoss)
-          feed = {buck_losses: eval_losses}#, 
-                  #learn_rate_placeholder: model.learning_rate,
-                  #average_bucket_loss: 0.0}
+          current_avg_buck_loss = 0.0
+          for b in xrange(len(_buckets)):
+            current_avg_buck_loss += train_buckets_dist[b] * eval_losses[b]
+          current_ppx = perplexity(current_avg_buck_loss)
+          print (current_ppx)
+          feed = {buck_losses: eval_losses, 
+                  eval_ppx: current_ppx,
+                  average_bucket_loss: current_avg_buck_loss,
+                  train_losses: train_loss_per_summary}
           summary_str = sess.run(merged, feed_dict=feed)
           writer.add_summary(summary_str, current_step)
+          train_loss_per_summary = 0.0
 
         # Once in a while, we save checkpoint, print statistics, and run evals.
         if current_step % FLAGS.steps_per_checkpoint == 0:
           # Print statistics for the previous epoch.
-          perplexity = math.exp(loss) if loss < 300 else float('inf')
+          perplexity = perplexity(loss)#math.exp(loss) if loss < 300 else float('inf')
           print ("global step %d learning rate %.4f step-time %.2f perplexity "
                  "%.2f" % (model.global_step.eval(), model.learning_rate.eval(),
                            step_time, perplexity))
