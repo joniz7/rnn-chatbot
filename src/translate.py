@@ -71,7 +71,7 @@ tf.app.flags.DEFINE_string("data_dir", "../data", "Data directory")
 tf.app.flags.DEFINE_string("train_dir", "../data", "Training directory.")
 tf.app.flags.DEFINE_integer("max_train_data_size", 100,
                             "Limit on the size of training data (0: no limit).")
-tf.app.flags.DEFINE_integer("steps_per_checkpoint", 200,
+tf.app.flags.DEFINE_integer("steps_per_checkpoint", 20,
                             "How many training steps to do per checkpoint.")
 tf.app.flags.DEFINE_integer("steps_per_summary", 2,
                             "How many training steps to do per summary")
@@ -213,6 +213,7 @@ def train():
     average_bucket_loss = tf.placeholder(tf.float32, name="average_bucket_loss")
     train_losses = tf.placeholder(tf.float32, name="train_losses")
     eval_ppx = tf.placeholder(tf.float32, name="eval_ppx")
+    train_ppx = tf.placeholder(tf.float32, name="train_ppx")
 
     eval_loss_summary = tf.histogram_summary("eval_bucket_losses", buck_losses)
     eval_avg_loss_summary = tf.scalar_summary("eval_bucket_average_losses",
@@ -220,6 +221,7 @@ def train():
     learning_rate_summary = tf.scalar_summary("learning_rate", model.learning_rate)
     train_avg_loss_summary = tf.scalar_summary("train_losses_avg", train_losses)
     eval_ppx_summary = tf.scalar_summary("eval_ppx_avg", eval_ppx)
+    train_ppx_summary = tf.scalar_summary("train_ppx_avg", train_ppx)
     merged = tf.merge_all_summaries()
     writer = tf.train.SummaryWriter(FLAGS.summary_path, sess.graph_def)
 
@@ -282,10 +284,11 @@ def train():
           current_avg_buck_loss = 0.0
           for b in xrange(len(_buckets)):
             current_avg_buck_loss += train_buckets_dist[b] * eval_losses[b]
-          current_ppx = perplexity(current_avg_buck_loss)
-          print (current_ppx)
+          current_eval_ppx = perplexity(current_avg_buck_loss)
+          current_train_ppx = perplexity(train_loss_per_summary)
           feed = {buck_losses: eval_losses, 
-                  eval_ppx: current_ppx,
+                  eval_ppx: current_eval_ppx,
+                  train_ppx: current_train_ppx,
                   average_bucket_loss: current_avg_buck_loss,
                   train_losses: train_loss_per_summary}
           summary_str = sess.run(merged, feed_dict=feed)
@@ -295,10 +298,10 @@ def train():
         # Once in a while, we save checkpoint, print statistics, and run evals.
         if current_step % FLAGS.steps_per_checkpoint == 0:
           # Print statistics for the previous epoch.
-          perplexity = perplexity(loss)#math.exp(loss) if loss < 300 else float('inf')
+          # math.exp(loss) if loss < 300 else float('inf')
           print ("global step %d learning rate %.4f step-time %.2f perplexity "
                  "%.2f" % (model.global_step.eval(), model.learning_rate.eval(),
-                           step_time, perplexity))
+                           step_time, perplexity(loss)))
           # Decrease learning rate if no improvement was seen over last 3 times.
           if len(previous_losses) > 2 and loss > max(previous_losses[-3:]):
             sess.run(model.learning_rate_decay_op)
