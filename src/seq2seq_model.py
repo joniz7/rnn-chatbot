@@ -32,7 +32,6 @@ import seq2seq
 #from tensorflow.models.rnn.translate import data_utils
 import data_utils
 
-
 class Seq2SeqModel(object):
   """Sequence-to-sequence model with attention and for multiple buckets.
 
@@ -45,13 +44,13 @@ class Seq2SeqModel(object):
   version of this model, but with bi-directional encoder, was presented in
     http://arxiv.org/abs/1409.0473
   and sampled softmax is described in Section 3 of the following paper.
-    http://arxiv.org/pdf/1412.2007v2.pdf
+    http://arxiv.org/abs/1412.2007
   """
 
   def __init__(self, source_vocab_size, target_vocab_size, buckets, size,
                num_layers, max_gradient_norm, batch_size, learning_rate,
                learning_rate_decay_factor, use_lstm=False,
-               num_samples=512, forward_only=False, embedding_dimension=50, initial_accumulator_value=0.1):
+               num_samples=512, forward_only=False, embedding_dimensions=50, initial_accumulator_value=0.1):
     """Create the model.
 
     Args:
@@ -82,7 +81,7 @@ class Seq2SeqModel(object):
     self.learning_rate_decay_op = self.learning_rate.assign(
         self.learning_rate * learning_rate_decay_factor)
     self.global_step = tf.Variable(0, trainable=False)
-    self.embedding_dimension = embedding_dimension
+    self.embedding_dimensions=embedding_dimensions
 
     # If we use sampled softmax, we need an output projection.
     output_projection = None
@@ -115,7 +114,7 @@ class Seq2SeqModel(object):
       return seq2seq.embedding_attention_seq2seq(
           encoder_inputs, decoder_inputs, cell, source_vocab_size,
           target_vocab_size, output_projection=output_projection,
-          feed_previous=do_decode, embedding_dimension=embedding_dimension)
+          feed_previous=do_decode, embedding_dimension=embedding_dimensions)
 
     # Feeds for inputs.
     self.encoder_inputs = []
@@ -138,19 +137,19 @@ class Seq2SeqModel(object):
     if forward_only:
       self.outputs, self.losses = seq2seq.model_with_buckets(
           self.encoder_inputs, self.decoder_inputs, targets,
-          self.target_weights, buckets, self.target_vocab_size,
-          lambda x, y: seq2seq_f(x, y, True),
+          self.target_weights, buckets, lambda x, y: seq2seq_f(x, y, True),
           softmax_loss_function=softmax_loss_function)
       # If we use output projection, we need to project outputs for decoding.
       if output_projection is not None:
         for b in xrange(len(buckets)):
-          self.outputs[b] = [tf.nn.xw_plus_b(output, output_projection[0],
-                                             output_projection[1])
-                             for output in self.outputs[b]]
+          self.outputs[b] = [
+              tf.matmul(output, output_projection[0]) + output_projection[1]
+              for output in self.outputs[b]
+          ]
     else:
       self.outputs, self.losses = seq2seq.model_with_buckets(
           self.encoder_inputs, self.decoder_inputs, targets,
-          self.target_weights, buckets, self.target_vocab_size,
+          self.target_weights, buckets,
           lambda x, y: seq2seq_f(x, y, False),
           softmax_loss_function=softmax_loss_function)
 
@@ -159,8 +158,7 @@ class Seq2SeqModel(object):
     if not forward_only:
       self.gradient_norms = []
       self.updates = []
-      opt = tf.train.AdagradOptimizer(self.learning_rate, initial_accumulator_value=initial_accumulator_value) # Changed from originally gradient descent.
-      # opt = tf.train.GradientDescentOptimizer(self.learning_rate)
+      opt = tf.train.GradientDescentOptimizer(self.learning_rate) ###############################################################################
       for b in xrange(len(buckets)):
         gradients = tf.gradients(self.losses[b], params)
         clipped_gradients, norm = tf.clip_by_global_norm(gradients,
@@ -188,7 +186,7 @@ class Seq2SeqModel(object):
       average perplexity, and the outputs.
 
     Raises:
-      ValueError: if length of enconder_inputs, decoder_inputs, or
+      ValueError: if length of encoder_inputs, decoder_inputs, or
         target_weights disagrees with bucket size for the specified bucket_id.
     """
     # Check if the sizes match.

@@ -97,7 +97,7 @@ def inject_embeddings(source_path):
     source_path : path to the file with the embeddings"""
 
   print("Load embedding from %s"%source_path)
-  with tf.variable_scope("embedding_attention_seq2seq/embedding"):
+  with tf.variable_scope("embedding_attention_seq2seq/embedding", reuse=True):
     with tf.Session() as sess:
       embedding = tf.get_variable("embedding")
       sess.run(embedding.assign(parseEmbeddings(source_path)))
@@ -151,7 +151,7 @@ def create_model(session, forward_only):
       FLAGS.vocab_size, FLAGS.vocab_size, _buckets,
       FLAGS.size, FLAGS.num_layers, FLAGS.max_gradient_norm, FLAGS.batch_size,
       FLAGS.learning_rate, FLAGS.learning_rate_decay_factor,
-      forward_only=forward_only, embedding_dimension=FLAGS.embedding_dimensions,
+      forward_only=forward_only, embedding_dimensions=FLAGS.embedding_dimensions,
       initial_accumulator_value=FLAGS.initial_accumulator_value)
   #ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
   #if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
@@ -225,11 +225,14 @@ def train():
     merged = tf.merge_all_summaries()
     writer = tf.train.SummaryWriter(FLAGS.summary_path, sess.graph_def)
 
+    print("before model")
 
     model = init_model(sess, model)
 
+    print("after model")
+
     #inject_embeddings(FLAGS.embedding_path) Dunno why this doesn't work
-    with tf.variable_scope("embedding_attention_seq2seq/embedding"): #Inject the embeddings
+    with tf.variable_scope("embedding_attention_seq2seq/embedding", reuse=True): #Inject the embeddings
       embedding = tf.get_variable("embedding")
       sess.run(embedding.assign(parseEmbeddings(FLAGS.embedding_path)))  
 

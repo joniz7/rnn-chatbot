@@ -1,1 +1,1 @@
-FROM b.gcr.io/tensorflow/tensorflow:0.6.0
+FROM b.gcr.io/tensorflow/tensorflow:0.7.1
