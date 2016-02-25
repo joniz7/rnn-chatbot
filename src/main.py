@@ -37,6 +37,10 @@ Following flags can be set when run:
 vocab_size = 30000
 embedding_dimension = 50
 data_path = "../data"
+batch_size = 64
+size = 1024
+num_layers = 3
+decode = False
 
 for arg in sys.argv[1:]:
   arg = arg.split("=")
@@ -53,6 +57,18 @@ for arg in sys.argv[1:]:
     elif(arg[0][2:] == "data_path"):
       print "data_path "+arg[1]
       data_path = int(arg[1])
+    elif(arg[0][2:] == "batch_size"):
+      print "batch_size "+arg[1]
+      batch_size = int(arg[1])
+    elif(arg[0][2:] == "size"):
+      print "size "+arg[1]
+      size = int(arg[1])
+    elif(arg[0][2:] == "num_layers"):
+      print "num_layers "+arg[1]
+      num_layers = int(arg[1])
+    elif(arg[0][2:] == "decode"):
+      print "decode "+arg[1]
+      decode = bool(arg[1])
     else:
       print "Bad format on flag %s"%arg[0]
       sys.exit()
@@ -103,5 +119,6 @@ else:
 
 print "Everything is prepared, running main script!"
 sys.argv = ["translate.py", "--data_dir="+data_path, "--train_dir="+data_path, 
-            "--vocab_size="+str(vocab_size), "--embedding_dimensions="+str(embedding_dimension)]
+            "--vocab_size="+str(vocab_size), "--embedding_dimensions="+str(embedding_dimension), 
+            "--size="+str(size), "--num_layers="+str(num_layers), "--batch_size="+str(batch_size), "--decode="+str(decode)]
 execfile("translate.py")
