@@ -305,10 +305,10 @@ def train():
                   average_bucket_loss: current_avg_buck_loss,
                   train_losses: loss}
           summary_str = sess.run(merged, feed_dict=feed)
+          global_step = model.global_step.eval()
           writer.add_summary(summary_str, global_step)
 
           # Print statistics for the previous epoch.
-          global_step = model.global_step.eval()
           print ("global step %d learning rate %.4f step-time %.2f training perplexity "
                  "%.2f patience %d" % (global_step, model.learning_rate.eval(),
                            step_time, current_train_ppx, patience))
