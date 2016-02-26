@@ -88,7 +88,7 @@ print "vocab_size: %d\nembedding_dimension: %d\nembeddings_filename: %s\ndata_pa
 
 trainingFiles = [data_path+"/train-data.utte", data_path+"/train-data.resp", data_path+"/valid-data.utte", data_path+"/valid-data.resp"]
 
-print "================== Checking if training and validation data exists ===================="
+print "========== Checking if training and validation data exists =========="
 if(reduce(operator.and_, map(os.path.isfile, trainingFiles))):
   print "Exists, moving on"
 else:
