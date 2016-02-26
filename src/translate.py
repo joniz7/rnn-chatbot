@@ -84,7 +84,7 @@ tf.app.flags.DEFINE_boolean("self_test", False,
 tf.app.flags.DEFINE_string("embedding_path", "../data/embeddings%d.txt"%tf.app.flags.FLAGS.vocab_size, "The path for the file with initial embeddings")
 tf.app.flags.DEFINE_float("patience_sensitivity", 0.995, 
                           "determines when an improvement/worsening is significant")
-tf.app.flags.DEFINE_integer("max_patience", 30, 
+tf.app.flags.DEFINE_integer("max_patience", 120, 
                             "The number of checks where model performs worse before stopping")
 
 FLAGS = tf.app.flags.FLAGS
