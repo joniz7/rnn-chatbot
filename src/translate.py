@@ -324,7 +324,9 @@ def train():
           # Save model and error if new best is found
           if(current_avg_buck_loss < lowest_valid_error):
             lowest_valid_error = current_avg_buck_loss
-            model.saver.save(sess, checkpoint_path, global_step=model.global_step)
+            # Don't save model during initial_steps
+            if(global_step > FLAGS.initial_steps)
+              model.saver.save(sess, checkpoint_path, global_step=model.global_step)
           
           step_time, loss = 0.0, 0.0
 
