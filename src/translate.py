@@ -269,7 +269,7 @@ def train():
     # create checkpoint_path
     checkpoint_path = os.path.join(FLAGS.train_dir, "translate.ckpt")
     try:
-      while patience > 0 and current_step < FLAGS.initial_steps:
+      while patience > 0 and model.global_step.eval() < FLAGS.initial_steps:
         """with tf.variable_scope("embedding_attention_seq2seq/embedding"):
           embedding = sess.run(tf.get_variable("embedding"))
           temp = embedding_ops.embedding_lookup(embedding, [6])
