@@ -71,10 +71,8 @@ tf.app.flags.DEFINE_string("data_dir", "../data", "Data directory")
 tf.app.flags.DEFINE_string("train_dir", "../data", "Training directory.")
 tf.app.flags.DEFINE_integer("max_train_data_size", 0,
                             "Limit on the size of training data (0: no limit).")
-tf.app.flags.DEFINE_integer("steps_per_checkpoint", 200,
+tf.app.flags.DEFINE_integer("steps_per_checkpoint", 50,
                             "How many training steps to do per checkpoint.")
-tf.app.flags.DEFINE_integer("steps_per_summary", 50,
-                            "How many training steps to do per summary")
 tf.app.flags.DEFINE_string("summary_path", "../data/summaries",
                             "Directory for summaries")
 tf.app.flags.DEFINE_boolean("decode", False,
@@ -82,6 +80,10 @@ tf.app.flags.DEFINE_boolean("decode", False,
 tf.app.flags.DEFINE_boolean("self_test", False,
                             "Run a self-test if this is set to True.")
 tf.app.flags.DEFINE_string("embedding_path", "../data/embeddings%d.txt"%tf.app.flags.FLAGS.vocab_size, "The path for the file with initial embeddings")
+tf.app.flags.DEFINE_float("patience_sensitivity", 0.995, 
+                          "determines when an improvement/worsening is significant")
+tf.app.flags.DEFINE_integer("max_patience", 5, 
+                            "The number of checks where model performs worse before stopping")
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -250,16 +252,22 @@ def train():
 
     # This is the training loop.
     step_time, loss = 0.0, 0.0
-    train_loss_per_summary = 0.0
     current_step = 0
     previous_losses = []
+
+    # Number of steps to take without improvement before stopping.
+    # We save 4 checkpoints back in time, so this guarantees that 
+    # the checkpoint with the best model is preserved.
+    max_patience = FLAGS.max_patience
+    patience = max_patience
+    lowest_valid_error = float('inf')
 
     print("COMMENCE TRAINING!!!!!!")
 
     # create checkpoint_path
     checkpoint_path = os.path.join(FLAGS.train_dir, "translate.ckpt")
     try:
-      while True:
+      while patience > 0:
         """with tf.variable_scope("embedding_attention_seq2seq/embedding"):
           embedding = sess.run(tf.get_variable("embedding"))
           temp = embedding_ops.embedding_lookup(embedding, [6])
@@ -279,51 +287,45 @@ def train():
                                      target_weights, bucket_id, False)
         step_time += (time.time() - start_time) / FLAGS.steps_per_checkpoint
         loss += step_loss / FLAGS.steps_per_checkpoint
-        # Collecting average loss over each summary
-        train_loss_per_summary += step_loss / FLAGS.steps_per_summary
         current_step += 1
 
-        if(current_step%FLAGS.steps_per_summary == 0):
-          print ("Writing summary for step %d" % current_step)
-          
+        # Writes summaries and also a checkpoint if new best is found.
+        if(current_step%FLAGS.steps_per_checkpoint == 0):
           eval_losses = np.asarray(eval_dev_set())
           current_avg_buck_loss = 0.0
           for b in xrange(len(_buckets)):
             current_avg_buck_loss += train_buckets_dist[b] * eval_losses[b]
           current_eval_ppx = perplexity(current_avg_buck_loss)
-          current_train_ppx = perplexity(train_loss_per_summary)
+          current_train_ppx = perplexity(loss)
           feed = {buck_losses: eval_losses, 
                   eval_ppx: current_eval_ppx,
                   train_ppx: current_train_ppx,
                   average_bucket_loss: current_avg_buck_loss,
-                  train_losses: train_loss_per_summary}
+                  train_losses: loss}
           summary_str = sess.run(merged, feed_dict=feed)
-          writer.add_summary(summary_str, current_step)
-          train_loss_per_summary = 0.0
+          writer.add_summary(summary_str, global_step)
 
-        # Once in a while, we save checkpoint, print statistics, and run evals.
-        if current_step % FLAGS.steps_per_checkpoint == 0:
           # Print statistics for the previous epoch.
-          # math.exp(loss) if loss < 300 else float('inf')
-          print ("global step %d learning rate %.4f step-time %.2f perplexity "
-                 "%.2f" % (model.global_step.eval(), model.learning_rate.eval(),
-                           step_time, perplexity(loss)))
+          global_step = model.global_step.eval()
+          print ("global step %d learning rate %.4f step-time %.2f training perplexity "
+                 "%.2f patience %d" % (global_step, model.learning_rate.eval(),
+                           step_time, current_train_ppx, patience))
           # Decrease learning rate if no improvement was seen over last 3 times.
           if len(previous_losses) > 2 and loss > max(previous_losses[-3:]):
             sess.run(model.learning_rate_decay_op)
           previous_losses.append(loss)
           
-          # Save checkpoint and zero timer and loss.      
-          model.saver.save(sess, checkpoint_path, global_step=model.global_step)
+          patience -= 1
+          # Reset patience if no significant increase in error.
+          if(current_avg_buck_loss*FLAGS.patience_sensitivity < lowest_valid_error):
+            patience = max_patience
+          # Save model and error if new best is found
+          if(current_avg_buck_loss < lowest_valid_error):
+            lowest_valid_error = current_avg_buck_loss
+            model.saver.save(sess, checkpoint_path, global_step=model.global_step)
+          
           step_time, loss = 0.0, 0.0
-          # Run evals on development set and print their perplexity.
-          #for bucket_id in xrange(len(_buckets)):
-          #  encoder_inputs, decoder_inputs, target_weights = model.get_batch(
-          #      dev_set, bucket_id)
-          #  _, eval_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
-          #                               target_weights, bucket_id, True)
-          #  eval_ppx = math.exp(eval_loss) if eval_loss < 300 else float('inf')
-          #  print("  eval: bucket %d perplexity %.2f" % (bucket_id, eval_ppx))
+
           sys.stdout.flush()
     except KeyboardInterrupt:
       print("Training stopped at step %d"%current_step)
