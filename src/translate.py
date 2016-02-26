@@ -73,6 +73,8 @@ tf.app.flags.DEFINE_integer("max_train_data_size", 0,
                             "Limit on the size of training data (0: no limit).")
 tf.app.flags.DEFINE_integer("steps_per_checkpoint", 50,
                             "How many training steps to do per checkpoint.")
+tf.app.flags.DEFINE_integer("initial_steps", 30000, 
+                            "Guaranteed number of steps to train")
 tf.app.flags.DEFINE_string("summary_path", "../data/summaries",
                             "Directory for summaries")
 tf.app.flags.DEFINE_boolean("decode", False,
@@ -267,7 +269,7 @@ def train():
     # create checkpoint_path
     checkpoint_path = os.path.join(FLAGS.train_dir, "translate.ckpt")
     try:
-      while patience > 0:
+      while patience > 0 and current_step < FLAGS.initial_steps:
         """with tf.variable_scope("embedding_attention_seq2seq/embedding"):
           embedding = sess.run(tf.get_variable("embedding"))
           temp = embedding_ops.embedding_lookup(embedding, [6])
