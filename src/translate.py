@@ -170,6 +170,10 @@ def init_model(session, model):
   else:
     print("Created model with fresh parameters.")
     session.run(tf.initialize_all_variables())
+
+    with tf.variable_scope("embedding_attention_seq2seq/embedding", reuse=True): #Inject the embeddings
+      embedding = tf.get_variable("embedding")
+      session.run(embedding.assign(parseEmbeddings(FLAGS.embedding_path)))  
   return model
   
 def train():
@@ -230,11 +234,6 @@ def train():
     model = init_model(sess, model)
 
     print("after model")
-
-    #inject_embeddings(FLAGS.embedding_path) Dunno why this doesn't work
-    with tf.variable_scope("embedding_attention_seq2seq/embedding", reuse=True): #Inject the embeddings
-      embedding = tf.get_variable("embedding")
-      sess.run(embedding.assign(parseEmbeddings(FLAGS.embedding_path)))  
 
 
     # A bucket scale is a list of increasing numbers from 0 to 1 that we'll use
@@ -337,7 +336,7 @@ def decode():
     # Create model and load parameters.
     model = create_model(sess, True)
     model = init_model(sess, model)
-    inject_embeddings(FLAGS.embedding_path)
+    
     model.batch_size = 1  # We decode one sentence at a time.
 
     # Load vocabularies.
