@@ -73,7 +73,7 @@ tf.app.flags.DEFINE_integer("max_train_data_size", 0,
                             "Limit on the size of training data (0: no limit).")
 tf.app.flags.DEFINE_integer("steps_per_checkpoint", 50,
                             "How many training steps to do per checkpoint.")
-tf.app.flags.DEFINE_integer("initial_steps", 30000, 
+tf.app.flags.DEFINE_integer("initial_steps", 10000, 
                             "Guaranteed number of steps to train")
 tf.app.flags.DEFINE_string("summary_path", "../data/summaries",
                             "Directory for summaries")
@@ -84,7 +84,7 @@ tf.app.flags.DEFINE_boolean("self_test", False,
 tf.app.flags.DEFINE_string("embedding_path", "../data/embeddings%d.txt"%tf.app.flags.FLAGS.vocab_size, "The path for the file with initial embeddings")
 tf.app.flags.DEFINE_float("patience_sensitivity", 0.995, 
                           "determines when an improvement/worsening is significant")
-tf.app.flags.DEFINE_integer("max_patience", 5, 
+tf.app.flags.DEFINE_integer("max_patience", 30, 
                             "The number of checks where model performs worse before stopping")
 
 FLAGS = tf.app.flags.FLAGS
