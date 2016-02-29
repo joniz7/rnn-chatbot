@@ -51,7 +51,7 @@ class Seq2SeqModel(object):
                num_layers, max_gradient_norm, batch_size, learning_rate,
                learning_rate_decay_factor, use_lstm=False,
                num_samples=512, forward_only=False, embedding_dimensions=50, 
-               initial_accumulator_value=0.1, patience=100000):
+               initial_accumulator_value=0.1, patience=100000, dropout_keep_prob=1.0):
     """Create the model.
 
     Args:
@@ -107,6 +107,7 @@ class Seq2SeqModel(object):
 
     # Create the internal multi-layer cell for our RNN.
     single_cell = rnn_cell.GRUCell(size)
+    dropout_single_cell = rnn_cell.DropoutWrapper(single_cell, output_keep_probability=dropout_keep_prob)
     if use_lstm:
       single_cell = rnn_cell.BasicLSTMCell(size)
     cell = single_cell
