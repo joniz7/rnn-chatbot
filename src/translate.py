@@ -86,6 +86,7 @@ tf.app.flags.DEFINE_float("patience_sensitivity", 0.995,
                           "determines when an improvement/worsening is significant")
 tf.app.flags.DEFINE_integer("max_patience", 120, 
                             "The number of checks where model performs worse before stopping")
+tf.app.flags.DEFINE_float("max_running_time", 60, "The training will terminate after at most this many minutes.")
 
 FLAGS = tf.app.flags.FLAGS
 
