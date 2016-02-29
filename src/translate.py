@@ -172,7 +172,7 @@ def init_model(session, model):
   if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
     print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
     model.saver.restore(session, ckpt.model_checkpoint_path)
-    print("Loaded model with validation error %.2f and global step %d." % (mode.best_validation_error.eval(), model.global_step.eval()))
+    print("Loaded model with validation error %.2f and global step %d." % (model.best_validation_error.eval(), model.global_step.eval()))
   else:
     print("Created model with fresh parameters.")
     session.run(tf.initialize_all_variables())
@@ -183,6 +183,8 @@ def init_model(session, model):
   return model
   
 def train():
+  training_start_time = time.time()
+
   """Train a en->fr translation model using WMT data."""
   # Prepare WMT data.
   print("Preparing WMT data in %s" % FLAGS.data_dir)
@@ -259,8 +261,6 @@ def train():
     previous_losses = []
 
     # Number of steps to take without improvement before stopping.
-    # We save 4 checkpoints back in time, so this guarantees that 
-    # the checkpoint with the best model is preserved.
     max_patience = FLAGS.max_patience
     patience = max_patience
     #lowest_valid_error = float('inf')
@@ -270,7 +270,7 @@ def train():
     # create checkpoint_path
     checkpoint_path = os.path.join(FLAGS.train_dir, "translate.ckpt")
     try:
-      while patience > 0 or model.global_step.eval() < FLAGS.initial_steps:
+      while (patience > 0 or model.global_step.eval() < FLAGS.initial_steps) and True: ##################################### ADD TIME CONSTRAINT
         """with tf.variable_scope("embedding_attention_seq2seq/embedding"):
           embedding = sess.run(tf.get_variable("embedding"))
           temp = embedding_ops.embedding_lookup(embedding, [6])
