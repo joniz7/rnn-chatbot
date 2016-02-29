@@ -107,12 +107,18 @@ class Seq2SeqModel(object):
 
     # Create the internal multi-layer cell for our RNN.
     single_cell = rnn_cell.GRUCell(size)
-    dropout_single_cell = rnn_cell.DropoutWrapper(single_cell, output_keep_probability=dropout_keep_prob)
     if use_lstm:
       single_cell = rnn_cell.BasicLSTMCell(size)
+
+    dropout_single_cell = rnn_cell.DropoutWrapper(single_cell, 
+                              output_keep_probability=dropout_keep_prob)
     cell = single_cell
+    if not forward_only:
+      cell = dropout_single_cell
     if num_layers > 1:
       cell = rnn_cell.MultiRNNCell([single_cell] * num_layers)
+      if not forward_only:
+        cell = rnn_cell.MultiRNNCell([dropout_single_cell] * num_layers)
 
     # The seq2seq function: we use embedding for the input and attention.
     def seq2seq_f(encoder_inputs, decoder_inputs, do_decode):
