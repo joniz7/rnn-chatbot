@@ -316,7 +316,7 @@ def train():
             patience = max_patience
           # Save model and error if new best is found
           if(current_avg_buck_loss < lowest_valid_error):
-            model.best_validation_error.assign(current_avg_buck_loss)
+            sess.run(model.best_validation_error.assign(current_avg_buck_loss))
             # Don't save model during initial_steps
             if(global_step > FLAGS.initial_steps):
               model.saver.save(sess, checkpoint_path, global_step=model.global_step)
@@ -334,7 +334,7 @@ def train():
 
           sys.stdout.flush()
     except KeyboardInterrupt:
-      print("Training stopped at step %d"%current_step)
+      print("Training stopped at step %d"%model.global_step.eval())
       model.saver.save(sess, checkpoint_path, global_step=model.global_step)
       writer.flush()
       writer.close()
