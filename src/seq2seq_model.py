@@ -50,7 +50,8 @@ class Seq2SeqModel(object):
   def __init__(self, source_vocab_size, target_vocab_size, buckets, size,
                num_layers, max_gradient_norm, batch_size, learning_rate,
                learning_rate_decay_factor, use_lstm=False,
-               num_samples=512, forward_only=False, embedding_dimensions=50, initial_accumulator_value=0.1):
+               num_samples=512, forward_only=False, embedding_dimensions=50, 
+               initial_accumulator_value=0.1, patience=100000):
     """Create the model.
 
     Args:
@@ -83,6 +84,8 @@ class Seq2SeqModel(object):
     self.global_step = tf.Variable(0, trainable=False)
     self.embedding_dimensions=embedding_dimensions
     self.best_validation_error = tf.Variable(float('inf'), trainable=False)
+    self.patience = tf.Variable(patience, trainable=False)
+    self.decrement_patience_op = self.patience.assign(self.patience - 1)
 
     # If we use sampled softmax, we need an output projection.
     output_projection = None
