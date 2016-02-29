@@ -82,6 +82,7 @@ class Seq2SeqModel(object):
         self.learning_rate * learning_rate_decay_factor)
     self.global_step = tf.Variable(0, trainable=False)
     self.embedding_dimensions=embedding_dimensions
+    self.best_vaildation_error = tf.Variable(float('inf'), trainable=False)
 
     # If we use sampled softmax, we need an output projection.
     output_projection = None

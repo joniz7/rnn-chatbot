@@ -73,7 +73,7 @@ tf.app.flags.DEFINE_integer("max_train_data_size", 0,
                             "Limit on the size of training data (0: no limit).")
 tf.app.flags.DEFINE_integer("steps_per_checkpoint", 50,
                             "How many training steps to do per checkpoint.")
-tf.app.flags.DEFINE_integer("initial_steps", 10000, 
+tf.app.flags.DEFINE_integer("initial_steps", 0,#10000, 
                             "Guaranteed number of steps to train")
 tf.app.flags.DEFINE_string("summary_path", "../data/summaries",
                             "Directory for summaries")
@@ -171,13 +171,14 @@ def init_model(session, model):
   if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
     print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
     model.saver.restore(session, ckpt.model_checkpoint_path)
+    print("Loaded model with validation error %.2f and global step %d." % (mode.best_validation_error.eval(), model.global_step.eval()))
   else:
     print("Created model with fresh parameters.")
     session.run(tf.initialize_all_variables())
 
     with tf.variable_scope("embedding_attention_seq2seq/embedding", reuse=True): #Inject the embeddings
       embedding = tf.get_variable("embedding")
-      session.run(embedding.assign(parseEmbeddings(FLAGS.embedding_path)))  
+      session.run(embedding.assign(parseEmbeddings(FLAGS.embedding_path)))
   return model
   
 def train():
@@ -261,14 +262,14 @@ def train():
     # the checkpoint with the best model is preserved.
     max_patience = FLAGS.max_patience
     patience = max_patience
-    lowest_valid_error = float('inf')
+    #lowest_valid_error = float('inf')
 
     print("COMMENCE TRAINING!!!!!!")
 
     # create checkpoint_path
     checkpoint_path = os.path.join(FLAGS.train_dir, "translate.ckpt")
     try:
-      while patience > 0 and model.global_step.eval() < FLAGS.initial_steps:
+      while patience > 0 or model.global_step.eval() < FLAGS.initial_steps:
         """with tf.variable_scope("embedding_attention_seq2seq/embedding"):
           embedding = sess.run(tf.get_variable("embedding"))
           temp = embedding_ops.embedding_lookup(embedding, [6])
@@ -306,27 +307,28 @@ def train():
           summary_str = sess.run(merged, feed_dict=feed)
           global_step = model.global_step.eval()
           writer.add_summary(summary_str, global_step)
-
-          # Print statistics for the previous epoch.
-          print ("global step %d learning rate %.4f step-time %.2f training perplexity "
-                 "%.2f patience %d" % (global_step, model.learning_rate.eval(),
-                           step_time, current_train_ppx, patience))
-          # Decrease learning rate if no improvement was seen over last 3 times.
-          if len(previous_losses) > 2 and loss > max(previous_losses[-3:]):
-            sess.run(model.learning_rate_decay_op)
-          previous_losses.append(loss)
           
           patience -= 1
           # Reset patience if no significant increase in error.
+          lowest_valid_error = model.best_validation_error.eval()
           if(current_avg_buck_loss*FLAGS.patience_sensitivity < lowest_valid_error):
             patience = max_patience
           # Save model and error if new best is found
           if(current_avg_buck_loss < lowest_valid_error):
-            lowest_valid_error = current_avg_buck_loss
+            model.best_validation_error.assign(current_avg_buck_loss)
             # Don't save model during initial_steps
-            if(global_step > FLAGS.initial_steps)
+            if(global_step > FLAGS.initial_steps):
               model.saver.save(sess, checkpoint_path, global_step=model.global_step)
           
+          # Print statistics for the previous epoch.
+          print ("global step %d learning rate %.4f step-time %.2f training perplexity "
+                 "%.2f evaluation perplexity %.2f patience %d" % (global_step, model.learning_rate.eval(),
+                           step_time, current_train_ppx, current_eval_ppx, patience))
+          # Decrease learning rate if no improvement was seen over last 3 times.
+          if len(previous_losses) > 2 and loss > max(previous_losses[-3:]):
+            sess.run(model.learning_rate_decay_op)
+          previous_losses.append(loss)
+
           step_time, loss = 0.0, 0.0
 
           sys.stdout.flush()
