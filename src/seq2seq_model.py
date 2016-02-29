@@ -111,7 +111,7 @@ class Seq2SeqModel(object):
       single_cell = rnn_cell.BasicLSTMCell(size)
 
     dropout_single_cell = rnn_cell.DropoutWrapper(single_cell, 
-                              output_keep_probability=dropout_keep_prob)
+                              output_keep_prob=dropout_keep_prob)
     cell = single_cell
     if not forward_only:
       cell = dropout_single_cell
