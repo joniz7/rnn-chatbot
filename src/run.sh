@@ -1,0 +1,1 @@
+python main.py --size=1 --num_layers=1 --vocab_size=300
