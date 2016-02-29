@@ -266,7 +266,8 @@ def train():
     # create checkpoint_path
     checkpoint_path = os.path.join(FLAGS.train_dir, "translate.ckpt")
     try:
-      while (model.patience.eval() > 0 or model.global_step.eval() < FLAGS.initial_steps) and True: ##################################### ADD TIME CONSTRAINT
+      while ((model.patience.eval() > 0 or model.global_step.eval() < FLAGS.initial_steps) 
+            and (time.time() - training_start_time)/60 < FLAGS.max_running_time ):
         """with tf.variable_scope("embedding_attention_seq2seq/embedding"):
           embedding = sess.run(tf.get_variable("embedding"))
           temp = embedding_ops.embedding_lookup(embedding, [6])
@@ -329,9 +330,16 @@ def train():
           step_time, loss = 0.0, 0.0
 
           sys.stdout.flush()
+      # END WHILE
+      print("Training stopped after running out of time, at step %d" % model.global_step.eval())
+      print("Saving model...")
+      model.saver.save(sess, checkpoint_path, global_step=model.global_step)
+      print("Model saved!")
     except KeyboardInterrupt:
       print("Training stopped at step %d"%model.global_step.eval())
+      print("Saving model...")
       model.saver.save(sess, checkpoint_path, global_step=model.global_step)
+      print("Model saved!")
       writer.flush()
       writer.close()
 
