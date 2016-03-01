@@ -51,7 +51,8 @@ class Seq2SeqModel(object):
                num_layers, max_gradient_norm, batch_size, learning_rate,
                learning_rate_decay_factor, use_lstm=False,
                num_samples=512, forward_only=False, embedding_dimensions=50, 
-               initial_accumulator_value=0.1, patience=100000, dropout_keep_prob=1.0):
+               initial_accumulator_value=0.1, patience=100000, dropout_keep_prob=1.0,
+               punct_marks=[], mark_drop_rates=[]):
     """Create the model.
 
     Args:
@@ -86,6 +87,10 @@ class Seq2SeqModel(object):
     self.best_validation_error = tf.Variable(float('inf'), trainable=False)
     self.patience = tf.Variable(patience, trainable=False)
     self.decrement_patience_op = self.patience.assign(self.patience - 1)
+    self.punct_marks = punct_marks
+    self.mark_drop_rates = mark_drop_rates
+
+    random.seed(12345)
 
     # If we use sampled softmax, we need an output projection.
     output_projection = None
@@ -213,9 +218,14 @@ class Seq2SeqModel(object):
       raise ValueError("Weights length must be equal to the one in bucket,"
                        " %d != %d." % (len(target_weights), decoder_size))
 
-    print(len(encoder_inputs))
-    for i in range(len(encoder_inputs)):
-      print(encoder_inputs[i])
+    unk_token = 3
+    for inputs in encoder_inputs:
+      for i, num in enumerate(inputs):
+        for j, mark in enumerate(self.punct_marks):
+          if num == mark:
+            rand = random.random()
+            if rand < self.mark_drop_rates[j]:
+                inputs[i] = unk_token
 
     # Input feed: encoder inputs, decoder inputs, target_weights, as provided.
     input_feed = {}

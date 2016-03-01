@@ -69,6 +69,7 @@ tf.app.flags.DEFINE_integer("num_layers", 3, "Number of layers in the model.")
 tf.app.flags.DEFINE_integer("vocab_size", 30000, "Size of our vocabulary")
 tf.app.flags.DEFINE_string("data_dir", "../data", "Data directory")
 tf.app.flags.DEFINE_string("train_dir", "../data", "Training directory.")
+tf.app.flags.DEFINE_string("checkpoint_dir", "../checkpoints", "Training directory.")
 tf.app.flags.DEFINE_integer("max_train_data_size", 0,
                             "Limit on the size of training data (0: no limit).")
 tf.app.flags.DEFINE_integer("steps_per_checkpoint", 50,
@@ -87,6 +88,9 @@ tf.app.flags.DEFINE_float("patience_sensitivity", 0.995,
 tf.app.flags.DEFINE_integer("max_patience", 120, 
                             "The number of checks where model performs worse before stopping")
 tf.app.flags.DEFINE_float("max_running_time", 60, "The training will terminate after at most this many minutes.")
+tf.app.flags.DEFINE_float("quest_drop_rate", 0.25, "The rate at which question marks will be dropped. Number between 0 and 1.")
+tf.app.flags.DEFINE_float("excl_drop_rate", 0.25, "The rate at which exclamation markswill be dropped. Number between 0 and 1.")
+tf.app.flags.DEFINE_float("period_drop_rate", 0.25, "The rate at which periods will be dropped. Number between 0 and 1.")
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -146,18 +150,21 @@ def read_data(source_path, target_path, max_size=None):
   return data_set
 
 
-def create_model(session, forward_only):
+def create_model(session, forward_only, vocab):
   """Create translation model and initialize or load parameters in session."""
 
   with tf.variable_scope("embedding_attention_seq2seq/embedding"):
     tf.get_variable("embedding", [FLAGS.vocab_size, FLAGS.embedding_dimensions])
+
+  punct_marks = data_utils.sentence_to_token_ids(".?!", vocab)
 
   model = seq2seq_model.Seq2SeqModel(
       FLAGS.vocab_size, FLAGS.vocab_size, _buckets,
       FLAGS.size, FLAGS.num_layers, FLAGS.max_gradient_norm, FLAGS.batch_size,
       FLAGS.learning_rate, FLAGS.learning_rate_decay_factor,
       forward_only=forward_only, embedding_dimensions=FLAGS.embedding_dimensions,
-      initial_accumulator_value=FLAGS.initial_accumulator_value, patience=FLAGS.max_patience)
+      initial_accumulator_value=FLAGS.initial_accumulator_value, patience=FLAGS.max_patience, 
+      punct_marks=punct_marks, mark_drop_rates=[FLAGS.period_drop_rate, FLAGS.quest_drop_rate, FLAGS.excl_drop_rate])
   #ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
   #if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
   #  print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
@@ -168,7 +175,7 @@ def create_model(session, forward_only):
   return model
 
 def init_model(session, model):
-  ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
+  ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
   if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
     print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
     model.saver.restore(session, ckpt.model_checkpoint_path)
@@ -194,9 +201,14 @@ def train():
       FLAGS.data_dir, FLAGS.vocab_size)
 
   with tf.Session() as sess:
+    # Load vocabularies.
+    vocab_path = os.path.join(FLAGS.data_dir,
+                                 "vocab%d" % FLAGS.vocab_size)
+    vocab, _ = data_utils.initialize_vocabulary(vocab_path)
+
     # Create model.
     print("Creating %d layers of %d units." % (FLAGS.num_layers, FLAGS.size))
-    model = create_model(sess, False)
+    model = create_model(sess, False, vocab)
 
     # Read data into buckets and compute their sizes.
     print ("Reading development and training data (limit: %d)."
@@ -265,7 +277,7 @@ def train():
     print("COMMENCE TRAINING!!!!!!")
 
     # create checkpoint_path
-    checkpoint_path = os.path.join(FLAGS.train_dir, "translate.ckpt")
+    checkpoint_path = os.path.join(FLAGS.checkpoint_dir, "translate.ckpt")
     try:
       while ((model.patience.eval() > 0 or model.global_step.eval() < FLAGS.initial_steps) 
             and (time.time() - training_start_time)/60 < FLAGS.max_running_time ):
@@ -347,16 +359,16 @@ def train():
 
 def decode():
   with tf.Session() as sess:
-    # Create model and load parameters.
-    model = create_model(sess, True)
-    model = init_model(sess, model)
-    
-    model.batch_size = 1  # We decode one sentence at a time.
-
     # Load vocabularies.
     vocab_path = os.path.join(FLAGS.data_dir,
                                  "vocab%d" % FLAGS.vocab_size)
     vocab, rev_vocab = data_utils.initialize_vocabulary(vocab_path)
+
+    # Create model and load parameters.
+    model = create_model(sess, True, vocab)
+    model = init_model(sess, model)
+    
+    model.batch_size = 1  # We decode one sentence at a time.
 
     # Decode from standard input.
     sys.stdout.write("> ")
@@ -365,6 +377,7 @@ def decode():
     while sentence:
       # Get token-ids for the input sentence.
       token_ids = data_utils.sentence_to_token_ids(sentence, vocab)
+
       # Which bucket does it belong to?
       bucket_id = min([b for b in xrange(len(_buckets))
                        if _buckets[b][0] > len(token_ids)])
