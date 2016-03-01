@@ -218,7 +218,7 @@ class Seq2SeqModel(object):
       raise ValueError("Weights length must be equal to the one in bucket,"
                        " %d != %d." % (len(target_weights), decoder_size))
 
-    unk_token = 3
+    unk_token = data_utils.UNK_ID
     for inputs in encoder_inputs:
       for i, num in enumerate(inputs):
         for j, mark in enumerate(self.punct_marks):
