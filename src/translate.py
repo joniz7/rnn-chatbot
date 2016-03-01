@@ -91,6 +91,7 @@ tf.app.flags.DEFINE_float("max_running_time", 60, "The training will terminate a
 tf.app.flags.DEFINE_float("quest_drop_rate", 0.25, "The rate at which question marks will be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("excl_drop_rate", 0.25, "The rate at which exclamation markswill be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("period_drop_rate", 0.25, "The rate at which periods will be dropped. Number between 0 and 1.")
+tf.app.flags.DEFINE_float("dropout_keep_prob", 0.5, "The probability that dropout is NOT applied to a node.")
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -163,8 +164,10 @@ def create_model(session, forward_only, vocab):
       FLAGS.size, FLAGS.num_layers, FLAGS.max_gradient_norm, FLAGS.batch_size,
       FLAGS.learning_rate, FLAGS.learning_rate_decay_factor,
       forward_only=forward_only, embedding_dimensions=FLAGS.embedding_dimensions,
-      initial_accumulator_value=FLAGS.initial_accumulator_value, patience=FLAGS.max_patience, 
-      punct_marks=punct_marks, mark_drop_rates=[FLAGS.period_drop_rate, FLAGS.quest_drop_rate, FLAGS.excl_drop_rate])
+      initial_accumulator_value=FLAGS.initial_accumulator_value,
+      punct_marks=punct_marks, mark_drop_rates=[FLAGS.period_drop_rate, FLAGS.quest_drop_rate, FLAGS.excl_drop_rate],
+      patience=FLAGS.max_patience, dropout_keep_prob=FLAGS.dropout_keep_prob)
+
   #ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
   #if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
   #  print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
