@@ -67,3 +67,6 @@ target/
 
 # dialog corpus
 data/
+
+# saved checkpoints
+checkpoints/
