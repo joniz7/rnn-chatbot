@@ -84,7 +84,7 @@ valid_data_percentage = 25
 test_data_percentage = 25
 
 print "Running main with parameters:"
-print "vocab_size: %d\nembedding_dimension: %d\nembeddings_filename: %s\ndata_path: %s"%(vocab_size, embedding_dimension, embeddings_filename, data_path)
+print "vocab_size: %d\nembedding_dimension: %d\nembeddings_filename: %s\ndata_path: %s\ndecode: %s"%(vocab_size, embedding_dimension, embeddings_filename, data_path, str(decode))
 
 trainingFiles = [data_path+"/train-data.utte", data_path+"/train-data.resp", data_path+"/valid-data.utte", data_path+"/valid-data.resp"]
 

@@ -202,6 +202,10 @@ class Seq2SeqModel(object):
       raise ValueError("Weights length must be equal to the one in bucket,"
                        " %d != %d." % (len(target_weights), decoder_size))
 
+    print(len(encoder_inputs))
+    for i in range(len(encoder_inputs)):
+      print(encoder_inputs[i])
+
     # Input feed: encoder inputs, decoder inputs, target_weights, as provided.
     input_feed = {}
     for l in xrange(encoder_size):

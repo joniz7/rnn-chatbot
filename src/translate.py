@@ -73,7 +73,7 @@ tf.app.flags.DEFINE_integer("max_train_data_size", 0,
                             "Limit on the size of training data (0: no limit).")
 tf.app.flags.DEFINE_integer("steps_per_checkpoint", 50,
                             "How many training steps to do per checkpoint.")
-tf.app.flags.DEFINE_integer("initial_steps", 10000, 
+tf.app.flags.DEFINE_integer("initial_steps", 0, 
                             "Guaranteed number of steps to train")
 tf.app.flags.DEFINE_string("summary_path", "../data/summaries",
                             "Directory for summaries")
@@ -181,9 +181,9 @@ def init_model(session, model):
   return model
   
 def train():
-  """Train a en->fr translation model using WMT data."""
-  # Prepare WMT data.
-  print("Preparing WMT data in %s" % FLAGS.data_dir)
+  """Train a dialogue model using dialogue corpus."""
+  # Prepare dialogue data.
+  print("Preparing dialogue data in %s" % FLAGS.data_dir)
   utte_train, resp_train, utte_dev, resp_dev,_ = data_utils.prepare_dialogue_data(
       FLAGS.data_dir, FLAGS.vocab_size)
 
@@ -268,7 +268,7 @@ def train():
     # create checkpoint_path
     checkpoint_path = os.path.join(FLAGS.train_dir, "translate.ckpt")
     try:
-      while patience > 0 and model.global_step.eval() < FLAGS.initial_steps:
+      while patience > 0 or model.global_step.eval() < FLAGS.initial_steps:
         """with tf.variable_scope("embedding_attention_seq2seq/embedding"):
           embedding = sess.run(tf.get_variable("embedding"))
           temp = embedding_ops.embedding_lookup(embedding, [6])
