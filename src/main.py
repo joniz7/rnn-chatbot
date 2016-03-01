@@ -79,9 +79,9 @@ for arg in sys.argv[1:]:
 embeddings_filename = "embeddings"+str(vocab_size)+".txt"
 
 # percentage of partitions between training, validation and test data respectively
-train_data_percentage = 50
+train_data_percentage = 60
 valid_data_percentage = 25
-test_data_percentage = 25
+test_data_percentage = 15
 
 print "Running main with parameters:"
 print "vocab_size: %d\nembedding_dimension: %d\nembeddings_filename: %s\ndata_path: %s\ndecode: %s"%(vocab_size, embedding_dimension, embeddings_filename, data_path, str(decode))
