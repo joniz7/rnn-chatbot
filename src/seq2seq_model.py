@@ -50,7 +50,8 @@ class Seq2SeqModel(object):
   def __init__(self, source_vocab_size, target_vocab_size, buckets, size,
                num_layers, max_gradient_norm, batch_size, learning_rate,
                learning_rate_decay_factor, use_lstm=False,
-               num_samples=512, forward_only=False, embedding_dimensions=50, initial_accumulator_value=0.1):
+               num_samples=512, forward_only=False, embedding_dimensions=50, 
+               initial_accumulator_value=0.1, patience=100000, dropout_keep_prob=1.0):
     """Create the model.
 
     Args:
@@ -82,6 +83,9 @@ class Seq2SeqModel(object):
         self.learning_rate * learning_rate_decay_factor)
     self.global_step = tf.Variable(0, trainable=False)
     self.embedding_dimensions=embedding_dimensions
+    self.best_validation_error = tf.Variable(float('inf'), trainable=False)
+    self.patience = tf.Variable(patience, trainable=False)
+    self.decrement_patience_op = self.patience.assign(self.patience - 1)
 
     # If we use sampled softmax, we need an output projection.
     output_projection = None
@@ -105,9 +109,16 @@ class Seq2SeqModel(object):
     single_cell = rnn_cell.GRUCell(size)
     if use_lstm:
       single_cell = rnn_cell.BasicLSTMCell(size)
+
+    dropout_single_cell = rnn_cell.DropoutWrapper(single_cell, 
+                              output_keep_prob=dropout_keep_prob)
     cell = single_cell
+    if not forward_only:
+      cell = dropout_single_cell
     if num_layers > 1:
       cell = rnn_cell.MultiRNNCell([single_cell] * num_layers)
+      if not forward_only:
+        cell = rnn_cell.MultiRNNCell([dropout_single_cell] * num_layers)
 
     # The seq2seq function: we use embedding for the input and attention.
     def seq2seq_f(encoder_inputs, decoder_inputs, do_decode):
