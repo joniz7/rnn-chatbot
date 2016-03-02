@@ -52,7 +52,7 @@ class Seq2SeqModel(object):
                learning_rate_decay_factor, use_lstm=False,
                num_samples=512, forward_only=False, embedding_dimensions=50, 
                initial_accumulator_value=0.1, patience=100000, dropout_keep_prob=1.0,
-               punct_marks=[], mark_drop_rates=[]):
+               punct_marks=[], mark_drop_rates=[], sample_output=False):
     """Create the model.
 
     Args:
@@ -130,7 +130,8 @@ class Seq2SeqModel(object):
       return seq2seq.embedding_attention_seq2seq(
           encoder_inputs, decoder_inputs, cell, source_vocab_size,
           target_vocab_size, output_projection=output_projection,
-          feed_previous=do_decode, embedding_dimension=embedding_dimensions)
+          feed_previous=do_decode, embedding_dimension=embedding_dimensions, 
+          sample_output=sample_output)
 
     # Feeds for inputs.
     self.encoder_inputs = []

@@ -151,7 +151,7 @@ def read_data(source_path, target_path, max_size=None):
   return data_set
 
 
-def create_model(session, forward_only, vocab):
+def create_model(session, forward_only, vocab, sample_output=False):
   """Create translation model and initialize or load parameters in session."""
 
   with tf.variable_scope("embedding_attention_seq2seq/embedding"):
@@ -166,7 +166,7 @@ def create_model(session, forward_only, vocab):
       forward_only=forward_only, embedding_dimensions=FLAGS.embedding_dimensions,
       initial_accumulator_value=FLAGS.initial_accumulator_value,
       punct_marks=punct_marks, mark_drop_rates=[FLAGS.period_drop_rate, FLAGS.quest_drop_rate, FLAGS.excl_drop_rate],
-      patience=FLAGS.max_patience, dropout_keep_prob=FLAGS.dropout_keep_prob)
+      patience=FLAGS.max_patience, dropout_keep_prob=FLAGS.dropout_keep_prob, sample_output=sample_output)
 
   #ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
   #if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
@@ -368,7 +368,7 @@ def decode():
     vocab, rev_vocab = data_utils.initialize_vocabulary(vocab_path)
 
     # Create model and load parameters.
-    model = create_model(sess, True, vocab)
+    model = create_model(sess, True, vocab, sample_output=True)
     model = init_model(sess, model)
     
     model.batch_size = 1  # We decode one sentence at a time.
@@ -390,7 +390,7 @@ def decode():
 
       # Get output logits for the sentence.
       _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
-                                       target_weights, bucket_id, True)
+                                       target_weights, bucket_id, False)
       # This is a greedy decoder - outputs are just argmaxes of output_logits.
       outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
       # If there is an EOS symbol in outputs, cut them at that point.
