@@ -551,7 +551,7 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
                                 output_size=None, output_projection=None,
                                 feed_previous=False, dtype=dtypes.float32,
                                 scope=None, initial_state_attention=False, 
-                                embedding_dimension=50, sample_output=False):
+                                embedding_dimension=50, sample_output=False, random_numbers=None):
   """RNN decoder with embedding and attention and a pure-decoding option.
 
   Args:
@@ -605,14 +605,14 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
                                                 [num_symbols, embedding_dimension])
 
   with variable_scope.variable_scope(scope or "embedding_attention_decoder"):
-    def extract_argmax_and_embed(prev, _):
+    def extract_argmax_and_embed(prev, index):
       """Loop_function that extracts the symbol from prev and embeds it."""
       if output_projection is not None:
         prev = nn_ops.xw_plus_b(
             prev, output_projection[0], output_projection[1])
       # Sample output if flag is set.
       if sample_output:
-        prev_symbol = stochastic_output_sampling(prev)
+        prev_symbol = stochastic_output_sampling(prev, index)
       else:
         prev_symbol = array_ops.stop_gradient(math_ops.argmax(prev, 1))
       emb_prev = embedding_ops.embedding_lookup(embedding, prev_symbol)
@@ -626,7 +626,7 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
         num_heads=num_heads, loop_function=loop_function,
         initial_state_attention=initial_state_attention)
 
-def stochastic_output_sampling(prev):
+def stochastic_output_sampling(prev, index):
   return array_ops.stop_gradient(math_ops.argmin(prev, 1)) # Currently doesn't sample.
 
 def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
