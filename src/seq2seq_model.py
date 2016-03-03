@@ -241,8 +241,6 @@ class Seq2SeqModel(object):
     last_target = self.decoder_inputs[decoder_size].name
     input_feed[last_target] = np.zeros([self.batch_size], dtype=np.int32)
 
-    ### WILL ONLY WORK WITH ONE BUCKET
-    input_feed[self.random_numbers.name] = tf.random_uniform(shape=[len(decoder_inputs[0])], maxval=1.0)
     # Output feed: depends on whether we do a backward step or not.
     if not forward_only:
       output_feed = [self.updates[bucket_id],  # Update Op that does SGD.
@@ -252,6 +250,8 @@ class Seq2SeqModel(object):
       output_feed = [self.losses[bucket_id]]  # Loss for this batch.
       for l in xrange(decoder_size):  # Output logits.
         output_feed.append(self.outputs[bucket_id][l])
+      ### WILL ONLY WORK WITH ONE BUCKET
+      input_feed[self.random_numbers.name] = [np.random.uniform() for i in decoder_inputs[1]]
 
     outputs = session.run(output_feed, input_feed)
     if not forward_only:
