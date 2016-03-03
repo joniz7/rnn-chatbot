@@ -125,13 +125,14 @@ class Seq2SeqModel(object):
       if not forward_only:
         cell = rnn_cell.MultiRNNCell([dropout_single_cell] * num_layers)
 
+    self.random_numbers = tf.placeholder(tf.float32, shape=[None], name="random_numbers")
     # The seq2seq function: we use embedding for the input and attention.
     def seq2seq_f(encoder_inputs, decoder_inputs, do_decode):
       return seq2seq.embedding_attention_seq2seq(
           encoder_inputs, decoder_inputs, cell, source_vocab_size,
           target_vocab_size, output_projection=output_projection,
           feed_previous=do_decode, embedding_dimension=embedding_dimensions, 
-          sample_output=sample_output)
+          sample_output=sample_output, random_numbers=self.random_numbers)
 
     # Feeds for inputs.
     self.encoder_inputs = []
@@ -240,6 +241,8 @@ class Seq2SeqModel(object):
     last_target = self.decoder_inputs[decoder_size].name
     input_feed[last_target] = np.zeros([self.batch_size], dtype=np.int32)
 
+    ### WILL ONLY WORK WITH ONE BUCKET
+    input_feed[self.random_numbers.name] = tf.random_uniform(shape=[len(decoder_inputs[0])], maxval=1.0)
     # Output feed: depends on whether we do a backward step or not.
     if not forward_only:
       output_feed = [self.updates[bucket_id],  # Update Op that does SGD.
