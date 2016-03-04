@@ -1,0 +1,14 @@
+{
+  "name": "chatbot",
+  "version": "0.0.1",
+  "description": "",
+  "main": "server.js",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.13.4",
+    "lodash": "^4.3.0",
+    "python-shell": "latest",
+    "prompt": "latest"
+  }
+}
