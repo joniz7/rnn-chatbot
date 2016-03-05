@@ -71,6 +71,7 @@ from tensorflow.python.ops import nn_ops
 from tensorflow.python.ops import rnn
 from tensorflow.python.ops import rnn_cell
 from tensorflow.python.ops import variable_scope
+import tensorflow as tf
 
 
 def rnn_decoder(decoder_inputs, initial_state, cell, loop_function=None,
@@ -627,7 +628,75 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
         initial_state_attention=initial_state_attention)
 
 def stochastic_output_sampling(prev, rand):
-  return array_ops.stop_gradient(math_ops.argmin(prev, 1)) # Currently doesn't sample.
+  """
+  Samples a symbol for each bucket with tensor operations.
+  args:
+    prev: output logits per bucket.
+    rand: a random number in [0, 1)
+  returns:
+    a symbol (per dim in prev) sampled from the distributions in prev.
+  """
+
+  """def cumsum(softmax):
+    values = tf.split(1, softmax.get_shape()[1], softmax)
+    out = []
+    pre = tf.zeros_like(values[0])
+    for val in values:
+        s = pre + val
+        out.append(s)
+        pre = s
+    cumsum = tf.concat(1, out)
+    return cumsum"""
+
+  max_split = 10
+  smallest_idx = math_ops.argmin(prev, 1)
+  smallest_val = tf.gather(tf.reshape(prev, [-1]), smallest_idx)
+  size = tf.size(prev)
+  
+  # Get top k
+  values, indices = tf.nn.top_k(prev, max_split)
+  # Split them
+  split_values = tf.split(1, max_split, values)
+  # find smallest value
+
+  # if
+
+
+  random_idx = tf.to_int32(tf.floor(tf.mul(rand,max_split)))
+  chosen_idx = tf.reshape(tf.gather(tf.reshape(indices, [-1]), random_idx), [-1])
+
+  
+
+  #summed_prev = math_ops.reduce_sum(prev, 1, keep_dims=True)
+  # The "maximum probability" for this distribution
+  #limit = summed_prev * rand
+  # duplicated across prev
+  #limits = tf.ones_like(prev) * limit
+  #cs = cumsum(prev)
+
+  #values = tf.split(0, tf.size(first_prev), first_prev)
+  #values = tf.split(1, prev.get_shape()[1], prev)
+
+  # Find all positions where it the logit is greater than limit
+  ##greater = tf.greater_equal(cum_summed_prev, limits)
+  
+  argmax = math_ops.argmax(prev, 1)
+  _print = tf.Print(chosen_idx, [chosen_idx, argmax])
+  #return greater_idxs[:][]
+  #return array_ops.stop_gradient(4)
+  return array_ops.stop_gradient(_print) # Currently doesn't sample.
+
+def numpy_stochastic_output_sampling(prev, rand):
+  """
+  Samples a symbol with numpy operations. This method must give identical result 
+  as stochastic_output_sampling when it's called with one bucket.
+  args:
+    prev: a single array of output logits.
+    rand: a random number in [0, 1)
+  returns:
+    a symbol sampled from the distribution in prev.
+  """
+  summed_prev = 0
 
 def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
                                 num_encoder_symbols, num_decoder_symbols,

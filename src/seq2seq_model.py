@@ -189,7 +189,7 @@ class Seq2SeqModel(object):
     self.saver = tf.train.Saver(tf.all_variables())
 
   def step(self, session, encoder_inputs, decoder_inputs, target_weights,
-           bucket_id, forward_only):
+           bucket_id, forward_only, random_numbers=None):
     """Run a step of the model feeding the given inputs.
 
     Args:
@@ -251,7 +251,7 @@ class Seq2SeqModel(object):
       for l in xrange(decoder_size):  # Output logits.
         output_feed.append(self.outputs[bucket_id][l])
       ### WILL ONLY WORK WITH ONE BUCKET
-      input_feed[self.random_numbers.name] = [np.random.uniform() for i in decoder_inputs[1]]
+      input_feed[self.random_numbers.name] = random_numbers
 
     outputs = session.run(output_feed, input_feed)
     if not forward_only:
