@@ -400,14 +400,12 @@ def decode():
       _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
                                        target_weights, bucket_id, True, random_numbers=random_numbers)
       # This is a greedy decoder - outputs are just argmaxes of output_logits.
-      outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
+      #outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
 
       # Throw away first random number and last in output_logits
       output_logits = output_logits[:-1]
       random_numbers = random_numbers[1:]
-      #outputs = [sample_output_topk(output_logits[l], random_numbers[l]) for l in xrange(len(output_logits))]
-      for l in outputs:
-        print (l)
+      outputs = [sample_output(output_logits[l], random_numbers[l]) for l in xrange(len(output_logits))]
       # If there is an EOS symbol in outputs, cut them at that point.
       if data_utils.EOS_ID in outputs:
         outputs = outputs[:outputs.index(data_utils.EOS_ID)]
@@ -420,23 +418,10 @@ def decode():
 def sample_output(logit, rand):
   logit = logit[0][:]
   smallest = np.argmin(logit)
-  normed = logit
-  if (smallest < 0):
-    normed = [l - smallest for l in logit]
-  total = np.sum(normed)
-  normed = [n/total for n in normed]
-  pre = 0
-  for i in xrange(len(normed)):
-    pre += normed[i]
-    if pre >= rand:
-      return i
-
-def sample_output_topk(logit, rand):
-  max_top = 10
-  logit = logit[0][:]
-  topk = logit.argsort()[-max_top:][::-1]
-  idx = int(np.floor(max_top*rand))
-  return topk[idx]
+  normed = logit - logit[smallest]
+  noised = np.multiply(normed, rand)
+  #print ("first logit: %.4f, first normed: %.4f, first noised: %.4f" % (logit[0], normed[0], noised[0]))
+  return np.argmax(noised)
 
 
 def self_test():

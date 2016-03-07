@@ -636,10 +636,10 @@ def stochastic_output_sampling(prev, rand):
 
   argmax = math_ops.argmax(prev, 1)
 
-  noised_prev = tf.mul(tf.reshape(rand, [-1]), reshaped_prev)
+  noised_prev = tf.mul(tf.reshape(rand, [-1]), normed_prev)
   argmax_noised = math_ops.argmax(noised_prev, 0)
-  _print = tf.Print(argmax, [argmax, argmax_noised, smallest_value, prev, normed_prev])
-  return array_ops.stop_gradient(_print) # Currently doesn't sample.
+  #_print = tf.Print(tf.expand_dims(argmax_noised, 0), [argmax, argmax_noised, prev, normed_prev, noised_prev])
+  return array_ops.stop_gradient(tf.expand_dims(argmax_noised, 0))
 
 
 def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
