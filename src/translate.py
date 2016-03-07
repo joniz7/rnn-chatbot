@@ -92,6 +92,7 @@ tf.app.flags.DEFINE_float("quest_drop_rate", 0.25, "The rate at which question m
 tf.app.flags.DEFINE_float("excl_drop_rate", 0.25, "The rate at which exclamation markswill be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("period_drop_rate", 0.25, "The rate at which periods will be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("dropout_keep_prob", 0.5, "The probability that dropout is NOT applied to a node.")
+tf.app.flags.DEFINE_float("decode_randomness", 0.1, "Factor determining the randomness when producing the output. Should be a float in [0, 1]")
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -373,6 +374,11 @@ def decode():
     
     model.batch_size = 1  # We decode one sentence at a time.
 
+    def get_random_numbers():
+      out = []
+      for j in xrange(len(decoder_inputs)):
+        out.append([np.random.uniform()*FLAGS.decode_randomness for i in xrange(model.source_vocab_size)])
+
     # Decode from standard input.
     sys.stdout.write("> ")
     sys.stdout.flush()
@@ -388,7 +394,7 @@ def decode():
       encoder_inputs, decoder_inputs, target_weights = model.get_batch(
           {bucket_id: [(token_ids, [])]}, bucket_id)
 
-      random_numbers = [np.random.uniform() for i in xrange(len(decoder_inputs))]
+      random_numbers = get_random_numbers()
       # Get output logits for the sentence.
       _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
                                        target_weights, bucket_id, True, random_numbers=random_numbers)

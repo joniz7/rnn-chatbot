@@ -125,7 +125,7 @@ class Seq2SeqModel(object):
       if not forward_only:
         cell = rnn_cell.MultiRNNCell([dropout_single_cell] * num_layers)
 
-    self.random_numbers = tf.placeholder(tf.float32, shape=[None], name="random_numbers")
+    self.random_numbers = tf.placeholder(tf.float32, shape=[None, self.source_vocab_size], name="random_numbers")
     # The seq2seq function: we use embedding for the input and attention.
     def seq2seq_f(encoder_inputs, decoder_inputs, do_decode):
       return seq2seq.embedding_attention_seq2seq(
@@ -250,7 +250,7 @@ class Seq2SeqModel(object):
       output_feed = [self.losses[bucket_id]]  # Loss for this batch.
       for l in xrange(decoder_size):  # Output logits.
         output_feed.append(self.outputs[bucket_id][l])
-      ### WILL ONLY WORK WITH ONE BUCKET
+      # Uses the same randoms for all buckets.
       input_feed[self.random_numbers.name] = random_numbers
 
     outputs = session.run(output_feed, input_feed)

@@ -613,7 +613,7 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
             prev, output_projection[0], output_projection[1])
       # Sample output if flag is set.
       if sample_output:
-        prev_symbol = stochastic_output_sampling(prev, random_numbers[index])
+        prev_symbol = stochastic_output_sampling(prev, tf.slice(random_numbers, [index, 0], [index, num_symbols]))
       else:
         prev_symbol = array_ops.stop_gradient(math_ops.argmax(prev, 1))
       emb_prev = embedding_ops.embedding_lookup(embedding, prev_symbol)
@@ -655,15 +655,9 @@ def stochastic_output_sampling(prev, rand):
   
   # Get top k
   values, indices = tf.nn.top_k(prev, max_split)
-  # Split them
-  split_values = tf.split(1, max_split, values)
-  # find smallest value
 
-  # if
-
-
-  random_idx = tf.to_int32(tf.floor(tf.mul(rand,max_split)))
-  chosen_idx = tf.reshape(tf.gather(tf.reshape(indices, [-1]), random_idx), [-1])
+  #random_idx = tf.to_int32(tf.floor(tf.mul(rand,max_split)))
+  #chosen_idx = tf.reshape(tf.gather(tf.reshape(indices, [-1]), random_idx), [-1])
 
   
 
@@ -681,7 +675,7 @@ def stochastic_output_sampling(prev, rand):
   ##greater = tf.greater_equal(cum_summed_prev, limits)
   
   argmax = math_ops.argmax(prev, 1)
-  _print = tf.Print(chosen_idx, [chosen_idx, argmax])
+  _print = tf.Print(argmax, [rand])
   #return greater_idxs[:][]
   #return array_ops.stop_gradient(4)
   return array_ops.stop_gradient(_print) # Currently doesn't sample.
