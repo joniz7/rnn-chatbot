@@ -22,10 +22,8 @@ var time = new Date();
 
 var filepath = '../data/chatlogs/log'+time.getTime()+'.txt';
 
-fs.closeSync(fs.openSync(filepath, 'w'));
-
 function writeFile(msg) {
-  fs.writeFile(filepath, msg+"\n");
+  fs.appendFile(filepath, msg+"\n");
 }
 
 app.get("/bot/:message", function(req, res){
@@ -79,9 +77,11 @@ function getInput(err, result) {
     console.log(result.bot + " picked");
     if(chatbots[result.bot]) {
       curBot = chatbots[result.bot];
+      writeFile("SWITCHED TO "+result.bot);
     } else if(result.bot == "manual") {
       manual = true;
       curBot = undefined;
+      writeFile("SWITCHED TO manual");
     } else {
       console.log("no such bot");
     }
