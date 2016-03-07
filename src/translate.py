@@ -339,7 +339,8 @@ def train():
                  "%.2f evaluation perplexity %.2f patience %d" % (global_step, model.learning_rate.eval(),
                            step_time, current_train_ppx, current_eval_ppx, model.patience.eval()))
           # Decrease learning rate if no improvement was seen over last 3 times.
-          if len(previous_losses) > 2 and loss > max(previous_losses[-3:]):
+          losses_lookback = 12
+          if len(previous_losses) >= losses_lookback and loss > max(previous_losses[-losses_lookback:]):
             sess.run(model.learning_rate_decay_op)
           previous_losses.append(loss)
 
