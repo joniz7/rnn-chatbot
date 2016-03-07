@@ -378,6 +378,7 @@ def decode():
       out = []
       for j in xrange(len(decoder_inputs)):
         out.append([np.random.uniform()*FLAGS.decode_randomness for i in xrange(model.source_vocab_size)])
+      return out
 
     # Decode from standard input.
     sys.stdout.write("> ")
@@ -399,12 +400,12 @@ def decode():
       _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
                                        target_weights, bucket_id, True, random_numbers=random_numbers)
       # This is a greedy decoder - outputs are just argmaxes of output_logits.
-      #outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
+      outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
 
       # Throw away first random number and last in output_logits
       output_logits = output_logits[:-1]
       random_numbers = random_numbers[1:]
-      outputs = [sample_output_topk(output_logits[l], random_numbers[l]) for l in xrange(len(output_logits))]
+      #outputs = [sample_output_topk(output_logits[l], random_numbers[l]) for l in xrange(len(output_logits))]
       for l in outputs:
         print (l)
       # If there is an EOS symbol in outputs, cut them at that point.

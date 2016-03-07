@@ -613,7 +613,7 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
             prev, output_projection[0], output_projection[1])
       # Sample output if flag is set.
       if sample_output:
-        prev_symbol = stochastic_output_sampling(prev, tf.slice(random_numbers, [index, 0], [index, num_symbols]))
+        prev_symbol = stochastic_output_sampling(prev, tf.slice(random_numbers, [index, 0], [1, -1]))
       else:
         prev_symbol = array_ops.stop_gradient(math_ops.argmax(prev, 1))
       emb_prev = embedding_ops.embedding_lookup(embedding, prev_symbol)
@@ -675,7 +675,7 @@ def stochastic_output_sampling(prev, rand):
   ##greater = tf.greater_equal(cum_summed_prev, limits)
   
   argmax = math_ops.argmax(prev, 1)
-  _print = tf.Print(argmax, [rand])
+  _print = tf.Print(argmax, [tf.shape(rand), rand])
   #return greater_idxs[:][]
   #return array_ops.stop_gradient(4)
   return array_ops.stop_gradient(_print) # Currently doesn't sample.
