@@ -303,10 +303,10 @@ def train():
                                      target_weights, bucket_id, False)
         step_time += (time.time() - start_time) / FLAGS.steps_per_checkpoint
         loss += step_loss / FLAGS.steps_per_checkpoint
-        current_step += 1
+        global_step = model.global_step.eval()
 
         # Writes summaries and also a checkpoint if new best is found.
-        if(current_step%FLAGS.steps_per_checkpoint == 0):
+        if(global_step%FLAGS.steps_per_checkpoint == 0):
           eval_losses = np.asarray(eval_dev_set())
           current_avg_buck_loss = 0.0
           for b in xrange(len(_buckets)):
@@ -319,7 +319,7 @@ def train():
                   average_bucket_loss: current_avg_buck_loss,
                   train_losses: loss}
           summary_str = sess.run(merged, feed_dict=feed)
-          global_step = model.global_step.eval()
+          
           writer.add_summary(summary_str, global_step)
           
           sess.run(model.decrement_patience_op)
