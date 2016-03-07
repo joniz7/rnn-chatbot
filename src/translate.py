@@ -251,14 +251,17 @@ def train():
     train_avg_loss_summary = tf.scalar_summary("train_losses_avg", train_losses)
     eval_ppx_summary = tf.scalar_summary("eval_ppx_avg", eval_ppx)
     train_ppx_summary = tf.scalar_summary("train_ppx_avg", train_ppx)
+    mean_train_err_summary = tf.scalar_summary("mean_train_err", model.mean_train_error)
+    mean_eval_err_summary = tf.scalar_summary("mean_eval_err", model.mean_eval_error)
+    best_validation_error_summary = tf.scalar_summary("best_validation_error", model.best_validation_error)
     merged = tf.merge_all_summaries()
     writer = tf.train.SummaryWriter(FLAGS.summary_path, sess.graph_def)
 
-    print("before model")
+    print("Initializing model...")
 
     model = init_model(sess, model)
 
-    print("after model")
+    print("Model initialized!")
 
 
     # A bucket scale is a list of increasing numbers from 0 to 1 that we'll use
@@ -311,16 +314,6 @@ def train():
           current_avg_buck_loss = 0.0
           for b in xrange(len(_buckets)):
             current_avg_buck_loss += train_buckets_dist[b] * eval_losses[b]
-          current_eval_ppx = perplexity(current_avg_buck_loss)
-          current_train_ppx = perplexity(loss)
-          feed = {buck_losses: eval_losses, 
-                  eval_ppx: current_eval_ppx,
-                  train_ppx: current_train_ppx,
-                  average_bucket_loss: current_avg_buck_loss,
-                  train_losses: loss}
-          summary_str = sess.run(merged, feed_dict=feed)
-          
-          writer.add_summary(summary_str, global_step)
           
           sess.run(model.decrement_patience_op)
           # Reset patience if no significant increase in error.
@@ -334,6 +327,28 @@ def train():
             if(global_step > FLAGS.initial_steps):
               model.saver.save(sess, checkpoint_path, global_step=model.global_step)
           
+          # Calculate new means.
+          current_check_step = global_step/FLAGS.steps_per_checkpoint
+          old_train_mean = model.mean_train_error.eval()
+          old_eval_mean = model.mean_eval_error.eval()
+          old_modifier = (current_check_step-1)/current_check_step
+          new_train_mean = old_train_mean*old_modifier + loss/current_check_step
+          new_eval_mean = old_eval_mean*old_modifier + current_avg_buck_loss/current_check_step
+          sess.run(model.mean_train_error.assign(new_train_mean))
+          sess.run(model.mean_eval_error.assign(new_eval_mean))
+
+          # Calculate summaries.
+          current_eval_ppx = perplexity(current_avg_buck_loss)
+          current_train_ppx = perplexity(loss)
+          feed = {buck_losses: eval_losses, 
+                  eval_ppx: current_eval_ppx,
+                  train_ppx: current_train_ppx,
+                  average_bucket_loss: current_avg_buck_loss,
+                  train_losses: loss}
+          summary_str = sess.run(merged, feed_dict=feed)
+          # Write all summaries.
+          writer.add_summary(summary_str, global_step)
+
           # Print statistics for the previous epoch.
           print ("global step %d learning rate %.4f step-time %.2f training perplexity "
                  "%.2f evaluation perplexity %.2f patience %d" % (global_step, model.learning_rate.eval(),
