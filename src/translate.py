@@ -220,6 +220,8 @@ def train():
     train_set = read_data(utte_train, resp_train, FLAGS.max_train_data_size)
     train_bucket_sizes = [len(train_set[b]) for b in xrange(len(_buckets))]
     train_total_size = float(sum(train_bucket_sizes))
+    eval_bucket_sizes = [len(dev_set[b]) for b in xrange(len(_buckets))]
+    eval_total_size = float(sum(eval_bucket_sizes))
 
     def eval_dev_set():
       bucket_losses = []
@@ -271,9 +273,9 @@ def train():
                            for i in xrange(len(train_bucket_sizes))]
 
     # The sizes of the buckets normalized to 1, such that: 
-    # sum(train_buckets_dist) == 1.0
-    train_buckets_dist = [train_bucket_sizes[i] / train_total_size 
-                          for i in xrange(len(train_bucket_sizes))]
+    # sum(eval_buckets_dist) == 1.0
+    eval_buckets_dist = [eval_bucket_sizes[i] / eval_total_size 
+                          for i in xrange(len(eval_bucket_sizes))]
 
     # This is the training loop.
     step_time, loss = 0.0, 0.0
@@ -313,7 +315,7 @@ def train():
           eval_losses = np.asarray(eval_dev_set())
           current_avg_buck_loss = 0.0
           for b in xrange(len(_buckets)):
-            current_avg_buck_loss += train_buckets_dist[b] * eval_losses[b]
+            current_avg_buck_loss += eval_buckets_dist[b] * eval_losses[b]
           
           sess.run(model.decrement_patience_op)
           # Reset patience if no significant increase in error.
