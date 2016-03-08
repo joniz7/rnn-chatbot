@@ -92,7 +92,7 @@ tf.app.flags.DEFINE_float("quest_drop_rate", 0.25, "The rate at which question m
 tf.app.flags.DEFINE_float("excl_drop_rate", 0.25, "The rate at which exclamation markswill be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("period_drop_rate", 0.25, "The rate at which periods will be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("dropout_keep_prob", 0.5, "The probability that dropout is NOT applied to a node.")
-tf.app.flags.DEFINE_float("decode_randomness", 0.5, "Factor determining the randomness when producing the output. Should be a float in [0, 1]")
+tf.app.flags.DEFINE_float("decode_randomness", 0.1, "Factor determining the randomness when producing the output. Should be a float in [0, 1]")
 
 FLAGS = tf.app.flags.FLAGS
 
