@@ -70,3 +70,6 @@ data/
 
 # saved checkpoints
 checkpoints/
+
+# node modules for the server
+src/chatserver/node_modules

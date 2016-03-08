@@ -1,0 +1,29 @@
+body {
+  background-color: seashell;
+}
+
+#inpField {
+  width: 83%;
+}
+
+#chat {
+  border: 1px black solid;
+  display: inline-block;
+  padding: 10px;
+}
+
+#chatlog {
+  background-color: white;
+  overflow-y: scroll; 
+  height: 600px;
+  width: 600px;
+}
+
+.chatlogElem {
+  border-bottom: 1px black dotted;
+  padding: 5px;
+}
+
+.bot {
+  background-color: lightgray;
+}
