@@ -85,8 +85,8 @@ class Seq2SeqModel(object):
     self.global_step = tf.Variable(0, trainable=False)
     self.embedding_dimensions=embedding_dimensions
     self.best_validation_error = tf.Variable(float('inf'), trainable=False)
-    self.mean_train_error = tf.Variable(0, trainable=False)
-    self.mean_eval_error = tf.Variable(0, trainable=False)
+    self.mean_train_error = tf.Variable(0.0, trainable=False)
+    self.mean_eval_error = tf.Variable(0.0, trainable=False)
     self.patience = tf.Variable(patience, trainable=False)
     self.decrement_patience_op = self.patience.assign(self.patience - 1)
     self.punct_marks = punct_marks

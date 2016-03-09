@@ -339,6 +339,8 @@ def train():
           new_eval_mean = old_eval_mean*old_modifier + current_avg_buck_loss/current_check_step
           sess.run(model.mean_train_error.assign(new_train_mean))
           sess.run(model.mean_eval_error.assign(new_eval_mean))
+          #print ("current step: %d, old train mean: %.4f, old eval mean: %.4f, old modifier: %.4f, new train mean: %.4f, new eval mean: %.4f" %
+          #  (current_check_step, old_train_mean, old_eval_mean, old_modifier, new_train_mean, new_eval_mean))
 
           # Calculate summaries.
           current_eval_ppx = perplexity(current_avg_buck_loss)
