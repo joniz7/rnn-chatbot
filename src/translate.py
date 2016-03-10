@@ -413,9 +413,6 @@ def decode():
 
       # Get token-ids for the input sentence.
       token_ids = data_utils.sentence_to_token_ids(sentence, vocab, correct_spelling=FLAGS.prettify_decoding)
-      for tid in token_ids: ### DEBUG STUFF
-        print(tid) ### DEBUG STUFF
-      print(" ".join([rev_vocab[t] for t in token_ids])) ### DEBUG STUFF
 
       if len(token_ids) >= _buckets[-1][0]:
         print("tldr pls")
