@@ -70,7 +70,8 @@ def isCorrect(line):
 def removeStars(line):
 	return re.sub("\.(\.+)", " _DOTS ", line)
 
-
+def purgeLine(line):
+	return removeStars(re.sub("\(.*?\)", "", line.replace("\n", " ").lower())).replace("*", "")
 
 def parseFile(filename):
 	txt = open(filename)
@@ -82,9 +83,6 @@ def parseFile(filename):
 	#print containsAny("<b><!--", ["<", ">","/","\\"])
 
 	totalLine = ""
-
-def purgeLine(line):
-	return removeStars(re.sub("\(.*?\)", "", line.replace("\n", " ").lower())).replace("*", "")
 
 	for line in txt:
 		if not line == "\n":
