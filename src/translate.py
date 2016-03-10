@@ -92,12 +92,13 @@ tf.app.flags.DEFINE_float("quest_drop_rate", 0.25, "The rate at which question m
 tf.app.flags.DEFINE_float("excl_drop_rate", 0.25, "The rate at which exclamation markswill be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("period_drop_rate", 0.25, "The rate at which periods will be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("dropout_keep_prob", 0.5, "The probability that dropout is NOT applied to a node.")
+tf.app.flags.DEFINE_float("decode_randomness", 0.1, "Factor determining the randomness when producing the output. Should be a float in [0, 1]")
 
 FLAGS = tf.app.flags.FLAGS
 
 # We use a number of buckets and pad to the closest one for efficiency.
 # See seq2seq_model.Seq2SeqModel for details of how they work.
-_buckets = [(5, 10), (10, 15), (20, 25), (40, 50), (100, 120)]
+_buckets = [(5, 10), (10, 15), (20, 25), (40, 50)]
 
 
 def inject_embeddings(source_path):
@@ -151,7 +152,7 @@ def read_data(source_path, target_path, max_size=None):
   return data_set
 
 
-def create_model(session, forward_only, vocab):
+def create_model(session, forward_only, vocab, sample_output=False):
   """Create translation model and initialize or load parameters in session."""
 
   with tf.variable_scope("embedding_attention_seq2seq/embedding"):
@@ -166,7 +167,7 @@ def create_model(session, forward_only, vocab):
       forward_only=forward_only, embedding_dimensions=FLAGS.embedding_dimensions,
       initial_accumulator_value=FLAGS.initial_accumulator_value,
       punct_marks=punct_marks, mark_drop_rates=[FLAGS.period_drop_rate, FLAGS.quest_drop_rate, FLAGS.excl_drop_rate],
-      patience=FLAGS.max_patience, dropout_keep_prob=FLAGS.dropout_keep_prob)
+      patience=FLAGS.max_patience, dropout_keep_prob=FLAGS.dropout_keep_prob, sample_output=sample_output)
 
   #ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
   #if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
@@ -294,6 +295,8 @@ def train():
           temp = embedding_ops.embedding_lookup(embedding, [6])
           print(embedding[6])
           print(temp)"""
+        # Necessary when session is aborted out of sync with FLAGS.steps_per_checkpoint.
+        current_step += 1
         # Choose a bucket according to data distribution. We pick a random number
         # in [0, 1] and use the corresponding interval in train_buckets_scale.
         random_number_01 = np.random.random_sample()
@@ -307,11 +310,12 @@ def train():
         _, step_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
                                      target_weights, bucket_id, False)
         step_time += (time.time() - start_time) / FLAGS.steps_per_checkpoint
-        loss += step_loss / FLAGS.steps_per_checkpoint
+        loss += step_loss #/ FLAGS.steps_per_checkpoint
         global_step = model.global_step.eval()
 
         # Writes summaries and also a checkpoint if new best is found.
         if(global_step%FLAGS.steps_per_checkpoint == 0):
+          loss = loss / current_step
           eval_losses = np.asarray(eval_dev_set())
           current_avg_buck_loss = 0.0
           for b in xrange(len(_buckets)):
@@ -338,6 +342,8 @@ def train():
           new_eval_mean = old_eval_mean*old_modifier + current_avg_buck_loss/current_check_step
           sess.run(model.mean_train_error.assign(new_train_mean))
           sess.run(model.mean_eval_error.assign(new_eval_mean))
+          #print ("current step: %d, old train mean: %.4f, old eval mean: %.4f, old modifier: %.4f, new train mean: %.4f, new eval mean: %.4f" %
+          #  (current_check_step, old_train_mean, old_eval_mean, old_modifier, new_train_mean, new_eval_mean))
 
           # Calculate summaries.
           current_eval_ppx = perplexity(current_avg_buck_loss)
@@ -362,6 +368,7 @@ def train():
           previous_losses.append(loss)
 
           step_time, loss = 0.0, 0.0
+          current_step = 0
 
           sys.stdout.flush()
       # END WHILE
@@ -388,10 +395,16 @@ def decode():
     _buckets = [(150, 150)]
 
     # Create model and load parameters.
-    model = create_model(sess, True, vocab)
+    model = create_model(sess, True, vocab, sample_output=True)
     model = init_model(sess, model)
     
     model.batch_size = 1  # We decode one sentence at a time.
+
+    def get_random_numbers():
+      out = []
+      for j in xrange(len(decoder_inputs)):
+        out.append([1 - np.random.uniform()*FLAGS.decode_randomness for i in xrange(model.source_vocab_size)])
+      return out
 
     # Decode from standard input.
     sys.stdout.write("> ")
@@ -412,20 +425,33 @@ def decode():
         encoder_inputs, decoder_inputs, target_weights = model.get_batch(
             {bucket_id: [(token_ids, [])]}, bucket_id)
 
+        random_numbers = get_random_numbers()
         # Get output logits for the sentence.
         _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
-                                         target_weights, bucket_id, True)
+                                         target_weights, bucket_id, True, random_numbers=random_numbers)
         # This is a greedy decoder - outputs are just argmaxes of output_logits.
-        outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
+        #outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
+
+        # Throw away first random number and last in output_logits
+        output_logits = output_logits[:-1]
+        random_numbers = random_numbers[1:]
+        outputs = [sample_output(output_logits[l], random_numbers[l]) for l in xrange(len(output_logits))]
         # If there is an EOS symbol in outputs, cut them at that point.
         if data_utils.EOS_ID in outputs:
           outputs = outputs[:outputs.index(data_utils.EOS_ID)]
         # Print out French sentence corresponding to outputs.
         print(" ".join([rev_vocab[output] for output in outputs]))
-
       print("> ", end="")
       sys.stdout.flush()
       sentence = sys.stdin.readline()
+
+def sample_output(logit, rand):
+  logit = logit[0][:]
+  smallest = np.argmin(logit)
+  normed = logit - logit[smallest]
+  noised = np.multiply(normed, rand)
+  #print ("first logit: %.4f, first normed: %.4f, first noised: %.4f" % (logit[0], normed[0], noised[0]))
+  return np.argmax(noised)
 
 
 def self_test():

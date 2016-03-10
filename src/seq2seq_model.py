@@ -52,7 +52,7 @@ class Seq2SeqModel(object):
                learning_rate_decay_factor, use_lstm=False,
                num_samples=512, forward_only=False, embedding_dimensions=50, 
                initial_accumulator_value=0.1, patience=100000, dropout_keep_prob=1.0,
-               punct_marks=[], mark_drop_rates=[]):
+               punct_marks=[], mark_drop_rates=[], sample_output=False):
     """Create the model.
 
     Args:
@@ -85,8 +85,8 @@ class Seq2SeqModel(object):
     self.global_step = tf.Variable(0, trainable=False)
     self.embedding_dimensions=embedding_dimensions
     self.best_validation_error = tf.Variable(float('inf'), trainable=False)
-    self.mean_train_error = tf.Variable(0, trainable=False)
-    self.mean_eval_error = tf.Variable(0, trainable=False)
+    self.mean_train_error = tf.Variable(0.0, trainable=False)
+    self.mean_eval_error = tf.Variable(0.0, trainable=False)
     self.patience = tf.Variable(patience, trainable=False)
     self.decrement_patience_op = self.patience.assign(self.patience - 1)
     self.punct_marks = punct_marks
@@ -127,12 +127,16 @@ class Seq2SeqModel(object):
       if not forward_only:
         cell = rnn_cell.MultiRNNCell([dropout_single_cell] * num_layers)
 
+    self.random_numbers = None
+    if sample_output:
+      self.random_numbers = tf.placeholder(tf.float32, shape=[None, self.source_vocab_size], name="random_numbers")
     # The seq2seq function: we use embedding for the input and attention.
     def seq2seq_f(encoder_inputs, decoder_inputs, do_decode):
       return seq2seq.embedding_attention_seq2seq(
           encoder_inputs, decoder_inputs, cell, source_vocab_size,
           target_vocab_size, output_projection=output_projection,
-          feed_previous=do_decode, embedding_dimension=embedding_dimensions)
+          feed_previous=do_decode, embedding_dimension=embedding_dimensions, 
+          sample_output=sample_output, random_numbers=self.random_numbers)
 
     # Feeds for inputs.
     self.encoder_inputs = []
@@ -189,7 +193,7 @@ class Seq2SeqModel(object):
     self.saver = tf.train.Saver(tf.all_variables())
 
   def step(self, session, encoder_inputs, decoder_inputs, target_weights,
-           bucket_id, forward_only):
+           bucket_id, forward_only, random_numbers=None):
     """Run a step of the model feeding the given inputs.
 
     Args:
@@ -250,6 +254,9 @@ class Seq2SeqModel(object):
       output_feed = [self.losses[bucket_id]]  # Loss for this batch.
       for l in xrange(decoder_size):  # Output logits.
         output_feed.append(self.outputs[bucket_id][l])
+      if random_numbers is not None:
+        # Uses the same randoms for all buckets.
+        input_feed[self.random_numbers.name] = random_numbers
 
     outputs = session.run(output_feed, input_feed)
     if not forward_only:
