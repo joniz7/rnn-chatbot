@@ -7,10 +7,9 @@ var fs          = require('fs');
 
 var chatbots = {};
 
-chatbots["cleverbot"] = new PythonShell("clever.py", {pythonOptions:["-u"]});
-chatbots["alice"]     = new PythonShell("alice.py", {pythonOptions: ["-u"]});
-process.chdir("..");
-chatbots["arenen"]    = new PythonShell("translate.py", {pythonOptions: ["-u"], args:["--size=5", "--num_layers=1", "--decode=True"]});
+chatbots["cleverbot"] = new PythonShell("src/clever.py", {pythonOptions:["-u"]});
+chatbots["alice"]     = new PythonShell("src/alice.py", {pythonOptions: ["-u"]});
+chatbots["arenen"]    = new PythonShell("src/translate.py", {pythonOptions: ["-u"], args:["--embedding_dimensions=300", "--size=5", "--num_layers=1", "--decode=True"]});
 var app = express();
 
 var curRes = undefined;
@@ -20,7 +19,7 @@ app.set("jsonp callback name", "cb");
 
 var time = new Date();
 
-var filepath = '../data/chatlogs/log'+time.getTime()+'.txt';
+var filepath = 'data/chatlogs/log'+time.getTime()+'.txt';
 
 function writeFile(msg) {
   fs.appendFile(filepath, msg+"\n");

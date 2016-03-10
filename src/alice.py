@@ -1,5 +1,8 @@
-import pyAIML as aiml
 import os
+
+os.chdir("src")
+
+import pyAIML as aiml
 import sys
 
 k = aiml.Kernel()
