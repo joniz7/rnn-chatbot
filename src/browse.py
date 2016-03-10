@@ -2,6 +2,7 @@ import os
 import random
 import operator
 import sys
+import parser
 
 from collections import Counter
 from operator import itemgetter
@@ -24,7 +25,7 @@ generateCorpusInfo = False if len(sys.argv) == 4 else bool(sys.argv[4])
 execfile("parser.py")
 
 def splitApostrophe(line):
-  return line.replace("n't", " n't").replace("'s", " 's").replace("'re", " 're").replace("'ve", " 've").replace("'d", " 'd").replace("'ll", " 'll").replace("'m", " 'm")
+  return splitApostrophe(line)
 
 trainInputFile = open("../data/train-data.utte", "w")
 trainOutputFile = open("../data/train-data.resp", "w")

@@ -3,6 +3,8 @@ import codecs
 import re
 
 
+def splitApostrophe(line):
+  return line.replace("n't", " n't").replace("'s", " 's").replace("'re", " 're").replace("'ve", " 've").replace("'d", " 'd").replace("'ll", " 'll").replace("'m", " 'm")
 
 def containsAny(str, set):
     """ Check whether sequence str contains ANY of the items in set. """
