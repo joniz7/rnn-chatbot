@@ -43,7 +43,6 @@ import numpy as np
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
-from autocorrect import spell
 
 #from tensorflow.models.rnn.translate import data_utils
 #from tensorflow.models.rnn.translate import seq2seq_model
@@ -52,6 +51,7 @@ from tensorflow.python.ops import embedding_ops
 
 import data_utils
 import seq2seq_model
+import parser
 
 
 execfile("parser.py")
@@ -407,8 +407,12 @@ def decode():
     sys.stdout.flush()
     sentence = sys.stdin.readline()
     while sentence:
+      sentence = parser.splitApostrophe(sentence)
       # Get token-ids for the input sentence.
-      token_ids = data_utils.sentence_to_token_ids(sentence, vocab)
+      token_ids = data_utils.sentence_to_token_ids(sentence, vocab, correct_spelling=True)
+      for tid in token_ids:
+        print(tid)
+      print(" ".join([rev_vocab[t] for t in token_ids]))
 
       if len(token_ids) >= _buckets[-1][0]:
         print("tldr pls")

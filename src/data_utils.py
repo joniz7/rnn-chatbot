@@ -11,6 +11,8 @@ import re
 from tensorflow.python.platform import gfile
 from six.moves import urllib
 
+from autocorrect import spell
+
 # Special vocabulary symbols - we always put them at the start.
 _PAD = "_PAD"
 _GO = "_GO"
@@ -109,7 +111,7 @@ def initialize_vocabulary(vocabulary_path):
 
 
 def sentence_to_token_ids(sentence, vocabulary, 
-                tokenizer=None, normalize_digits=True):
+                tokenizer=None, normalize_digits=True, correct_spelling=False):
     """Convert a string to list of integers representing token-ids.
 
     For example, a sentence "I have a dog" may become tokenized into 
@@ -126,14 +128,28 @@ def sentence_to_token_ids(sentence, vocabulary,
     Returns:
       a list of integers, the token-ids for the sentence.
     """
+    def spell_and_replace(word):
+        if vocabulary.has_key(word):
+            return word
+        return spell(word)
+
     if tokenizer:
         words = tokenizer(sentence)
     else:
         words = basic_tokenizer(sentence)
-    if not normalize_digits:
-        return [vocabulary.get(w, UNK_ID) for w in words]
-    # Normalize digits by 0 before looking words up in the vocabulary
-    return [vocabulary.get(re.sub(_DIGIT_RE, "0", w), UNK_ID) for w in words]
+
+    if normalize_digits:
+        words = [re.sub(_DIGIT_RE, "0", w) for w in words]
+
+    if correct_spelling:
+        words = [spell_and_replace(w) for w in words]
+
+    return [vocabulary.get(w, UNK_ID) for w in words]
+
+    #if not normalize_digits:
+    #    return [vocabulary.get(w, UNK_ID) for w in words]
+    ## Normalize digits by 0 before looking words up in the vocabulary
+    #return [vocabulary.get(re.sub(_DIGIT_RE, "0", w), UNK_ID) for w in words]
 
 
 def data_to_token_ids(data_path, target_path, vocabulary_path, 
