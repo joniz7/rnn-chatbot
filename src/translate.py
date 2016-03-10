@@ -95,6 +95,7 @@ tf.app.flags.DEFINE_float("excl_drop_rate", 0.25, "The rate at which exclamation
 tf.app.flags.DEFINE_float("period_drop_rate", 0.25, "The rate at which periods will be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("dropout_keep_prob", 0.5, "The probability that dropout is NOT applied to a node.")
 tf.app.flags.DEFINE_float("decode_randomness", 0.1, "Factor determining the randomness when producing the output. Should be a float in [0, 1]")
+tf.app.flags.DEFINE_boolean("prettify_decoding", True, "If set, corrects spelling, randomizes numbers, generates a new output if output starts with _EOS and adds _UNK to to end of input")
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -407,12 +408,14 @@ def decode():
     sys.stdout.flush()
     sentence = sys.stdin.readline()
     while sentence:
-      sentence = parser.splitApostrophe(sentence)
+      # Split at apostrophes and make everything lowercase.
+      sentence = parser.splitApostrophe(sentence).lower()
+
       # Get token-ids for the input sentence.
-      token_ids = data_utils.sentence_to_token_ids(sentence, vocab, correct_spelling=True)
-      for tid in token_ids:
-        print(tid)
-      print(" ".join([rev_vocab[t] for t in token_ids]))
+      token_ids = data_utils.sentence_to_token_ids(sentence, vocab, correct_spelling=FLAGS.prettify_decoding)
+      for tid in token_ids: ### DEBUG STUFF
+        print(tid) ### DEBUG STUFF
+      print(" ".join([rev_vocab[t] for t in token_ids])) ### DEBUG STUFF
 
       if len(token_ids) >= _buckets[-1][0]:
         print("tldr pls")
@@ -440,7 +443,18 @@ def decode():
         if data_utils.EOS_ID in outputs:
           outputs = outputs[:outputs.index(data_utils.EOS_ID)]
         # Print out French sentence corresponding to outputs.
-        print(" ".join([rev_vocab[output] for output in outputs]))
+        if FLAGS.prettify_decoding:
+          # Join in a neat fashion if flag is set.
+          s = ""
+          tightJoinTokens = parser.getTightJoinTokens(vocab)
+          for output in outputs:
+            if output in tightJoinTokens:
+              s = "".join([s, rev_vocab[output]])
+            else:
+              s = " ".join([s, rev_vocab[output]])
+          print(s)
+        else:
+          print(" ".join([rev_vocab[output] for output in outputs]))
       print("> ", end="")
       sys.stdout.flush()
       sentence = sys.stdin.readline()
