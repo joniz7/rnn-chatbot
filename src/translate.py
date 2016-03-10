@@ -422,8 +422,16 @@ def decode():
       # Split at apostrophes and make everything lowercase.
       sentence = parser.splitApostrophe(sentence).lower()
 
+      # Fix _DOTS here. Won't lower() on _DOTS.
+      sentence = parser.removeStars(sentence)
+
       # Get token-ids for the input sentence.
       token_ids = data_utils.sentence_to_token_ids(sentence, vocab, correct_spelling=FLAGS.prettify_decoding)
+
+      # Add _UNK at end of sentence if flagged
+      if FLAGS.prettify_decoding:
+        if not token_ids[-1] in ([data_utils.UNK_ID, vocab["_DOTS"]] + [vocab[pm] for pm in parser.punctuationMarks]):
+          token_ids.append(data_utils.UNK_ID)
 
       if len(token_ids) >= _buckets[-1][0]:
         print("tldr pls")
