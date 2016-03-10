@@ -71,6 +71,7 @@ from tensorflow.python.ops import nn_ops
 from tensorflow.python.ops import rnn
 from tensorflow.python.ops import rnn_cell
 from tensorflow.python.ops import variable_scope
+import tensorflow as tf
 
 
 def rnn_decoder(decoder_inputs, initial_state, cell, loop_function=None,
@@ -550,7 +551,8 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
                                 cell, num_symbols, num_heads=1,
                                 output_size=None, output_projection=None,
                                 feed_previous=False, dtype=dtypes.float32,
-                                scope=None, initial_state_attention=False, embedding_dimension=50):
+                                scope=None, initial_state_attention=False, 
+                                embedding_dimension=50, sample_output=False, random_numbers=None):
   """RNN decoder with embedding and attention and a pure-decoding option.
 
   Args:
@@ -604,12 +606,16 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
                                                 [num_symbols, embedding_dimension])
 
   with variable_scope.variable_scope(scope or "embedding_attention_decoder"):
-    def extract_argmax_and_embed(prev, _):
+    def extract_argmax_and_embed(prev, index):
       """Loop_function that extracts the symbol from prev and embeds it."""
       if output_projection is not None:
         prev = nn_ops.xw_plus_b(
             prev, output_projection[0], output_projection[1])
-      prev_symbol = array_ops.stop_gradient(math_ops.argmax(prev, 1))
+      # Sample output if flag is set.
+      if sample_output:
+        prev_symbol = stochastic_output_sampling(prev, tf.slice(random_numbers, [index, 0], [1, -1]))
+      else:
+        prev_symbol = array_ops.stop_gradient(math_ops.argmax(prev, 1))
       emb_prev = embedding_ops.embedding_lookup(embedding, prev_symbol)
       return emb_prev
 
@@ -622,11 +628,27 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
         initial_state_attention=initial_state_attention)
 
 
+def stochastic_output_sampling(prev, rand):
+  reshaped_prev = tf.reshape(prev, [-1])
+  argmin = math_ops.argmin(prev, 1)
+  smallest_value = tf.gather(reshaped_prev, argmin)
+  normed_prev = tf.sub(reshaped_prev, smallest_value)
+
+  argmax = math_ops.argmax(prev, 1)
+
+  noised_prev = tf.mul(tf.reshape(rand, [-1]), normed_prev)
+  argmax_noised = math_ops.argmax(noised_prev, 0)
+  #_print = tf.Print(tf.expand_dims(argmax_noised, 0), [argmax, argmax_noised, prev, normed_prev, noised_prev])
+  return array_ops.stop_gradient(tf.expand_dims(argmax_noised, 0))
+
+
 def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
                                 num_encoder_symbols, num_decoder_symbols,
                                 num_heads=1, output_projection=None,
                                 feed_previous=False, dtype=dtypes.float32,
-                                scope=None, initial_state_attention=False, embedding_dimension=50):
+                                scope=None, initial_state_attention=False, 
+                                embedding_dimension=50, sample_output=False, 
+                                random_numbers=None):
   """Embedding sequence-to-sequence model with attention.
 
   This model first embeds encoder_inputs by a newly created embedding (of shape
@@ -691,7 +713,8 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
           decoder_inputs, encoder_state, attention_states, cell,
           num_decoder_symbols, num_heads=num_heads, output_size=output_size,
           output_projection=output_projection, feed_previous=feed_previous,
-          initial_state_attention=initial_state_attention, embedding_dimension=embedding_dimension)
+          initial_state_attention=initial_state_attention, 
+          embedding_dimension=embedding_dimension, sample_output=sample_output, random_numbers=random_numbers)
 
     # If feed_previous is a Tensor, we construct 2 graphs and use cond.
     def decoder(feed_previous_bool):
@@ -703,7 +726,8 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
             num_decoder_symbols, num_heads=num_heads, output_size=output_size,
             output_projection=output_projection,
             feed_previous=feed_previous_bool,
-            initial_state_attention=initial_state_attention, embedding_dimension=embedding_dimension)
+            initial_state_attention=initial_state_attention, 
+            embedding_dimension=embedding_dimension, sample_output=sample_output, random_numbers=random_numbers)
         return outputs + [state]
 
     outputs_and_state = control_flow_ops.cond(feed_previous,

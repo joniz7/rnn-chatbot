@@ -48,8 +48,8 @@ for arg in sys.argv[1:]:
     if(arg[0][2:] == "vocab_size"):
       print "vocab_size "+arg[1]
       vocab_size = int(arg[1])
-    elif(arg[0][2:] == "embedding_dimension"):
-      print "embedding_dimension "+arg[1]
+    elif(arg[0][2:] == "embedding_dimensions"):
+      print "embedding_dimensions "+arg[1]
       embedding_dimension = int(arg[1])
     elif(arg[0][2:] == "embeddings_filename"):
       print "embeddings_filename "+arg[1]
@@ -79,9 +79,9 @@ for arg in sys.argv[1:]:
 embeddings_filename = "embeddings"+str(vocab_size)+".txt"
 
 # percentage of partitions between training, validation and test data respectively
-train_data_percentage = 60
-valid_data_percentage = 25
-test_data_percentage = 15
+train_data_percentage = 79
+valid_data_percentage = 7
+test_data_percentage = 14
 
 print "Running main with parameters:"
 print "vocab_size: %d\nembedding_dimension: %d\nembeddings_filename: %s\ndata_path: %s\ndecode: %s"%(vocab_size, embedding_dimension, embeddings_filename, data_path, str(decode))

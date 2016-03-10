@@ -91,13 +91,16 @@ tf.app.flags.DEFINE_float("max_running_time", 60, "The training will terminate a
 tf.app.flags.DEFINE_float("quest_drop_rate", 0.25, "The rate at which question marks will be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("excl_drop_rate", 0.25, "The rate at which exclamation markswill be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("period_drop_rate", 0.25, "The rate at which periods will be dropped. Number between 0 and 1.")
+tf.app.flags.DEFINE_float("comma_drop_date", 0.25, "The rate at which commas will be dropped. Number between 0 and 1.")
+tf.app.flags.DEFINE_float("dots_drop_rate", 0.25, "The rate at which the _DOTS tag will be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("dropout_keep_prob", 0.5, "The probability that dropout is NOT applied to a node.")
+tf.app.flags.DEFINE_float("decode_randomness", 0.1, "Factor determining the randomness when producing the output. Should be a float in [0, 1]")
 
 FLAGS = tf.app.flags.FLAGS
 
 # We use a number of buckets and pad to the closest one for efficiency.
 # See seq2seq_model.Seq2SeqModel for details of how they work.
-_buckets = [(5, 10), (10, 15), (20, 25), (40, 50), (100, 120)]
+_buckets = [(5, 10), (10, 15), (20, 25), (40, 50)]
 
 
 def inject_embeddings(source_path):
@@ -151,13 +154,16 @@ def read_data(source_path, target_path, max_size=None):
   return data_set
 
 
-def create_model(session, forward_only, vocab):
+def create_model(session, forward_only, vocab, sample_output=False):
   """Create translation model and initialize or load parameters in session."""
 
   with tf.variable_scope("embedding_attention_seq2seq/embedding"):
     tf.get_variable("embedding", [FLAGS.vocab_size, FLAGS.embedding_dimensions])
 
-  punct_marks = data_utils.sentence_to_token_ids(".?!", vocab)
+  # what characters to randomly drop
+  punct_marks = data_utils.sentence_to_token_ids(".?!,_DOTS", vocab)
+  # list of drop rates with the same ordering as above
+  mark_drop_rates = [FLAGS.period_drop_rate, FLAGS.quest_drop_rate, FLAGS.excl_drop_rate, FLAGS.comma_drop_date, FLAGS.dots_drop_rate]
 
   model = seq2seq_model.Seq2SeqModel(
       FLAGS.vocab_size, FLAGS.vocab_size, _buckets,
@@ -165,8 +171,8 @@ def create_model(session, forward_only, vocab):
       FLAGS.learning_rate, FLAGS.learning_rate_decay_factor,
       forward_only=forward_only, embedding_dimensions=FLAGS.embedding_dimensions,
       initial_accumulator_value=FLAGS.initial_accumulator_value,
-      punct_marks=punct_marks, mark_drop_rates=[FLAGS.period_drop_rate, FLAGS.quest_drop_rate, FLAGS.excl_drop_rate],
-      patience=FLAGS.max_patience, dropout_keep_prob=FLAGS.dropout_keep_prob)
+      punct_marks=punct_marks, mark_drop_rates=mark_drop_rates,
+      patience=FLAGS.max_patience, dropout_keep_prob=FLAGS.dropout_keep_prob, sample_output=sample_output)
 
   #ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
   #if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
@@ -220,6 +226,8 @@ def train():
     train_set = read_data(utte_train, resp_train, FLAGS.max_train_data_size)
     train_bucket_sizes = [len(train_set[b]) for b in xrange(len(_buckets))]
     train_total_size = float(sum(train_bucket_sizes))
+    eval_bucket_sizes = [len(dev_set[b]) for b in xrange(len(_buckets))]
+    eval_total_size = float(sum(eval_bucket_sizes))
 
     def eval_dev_set():
       bucket_losses = []
@@ -251,14 +259,17 @@ def train():
     train_avg_loss_summary = tf.scalar_summary("train_losses_avg", train_losses)
     eval_ppx_summary = tf.scalar_summary("eval_ppx_avg", eval_ppx)
     train_ppx_summary = tf.scalar_summary("train_ppx_avg", train_ppx)
+    mean_train_err_summary = tf.scalar_summary("mean_train_err", model.mean_train_error)
+    mean_eval_err_summary = tf.scalar_summary("mean_eval_err", model.mean_eval_error)
+    best_validation_error_summary = tf.scalar_summary("best_validation_error", model.best_validation_error)
     merged = tf.merge_all_summaries()
     writer = tf.train.SummaryWriter(FLAGS.summary_path, sess.graph_def)
 
-    print("before model")
+    print("Initializing model...")
 
     model = init_model(sess, model)
 
-    print("after model")
+    print("Model initialized!")
 
 
     # A bucket scale is a list of increasing numbers from 0 to 1 that we'll use
@@ -268,9 +279,9 @@ def train():
                            for i in xrange(len(train_bucket_sizes))]
 
     # The sizes of the buckets normalized to 1, such that: 
-    # sum(train_buckets_dist) == 1.0
-    train_buckets_dist = [train_bucket_sizes[i] / train_total_size 
-                          for i in xrange(len(train_bucket_sizes))]
+    # sum(eval_buckets_dist) == 1.0
+    eval_buckets_dist = [eval_bucket_sizes[i] / eval_total_size 
+                          for i in xrange(len(eval_bucket_sizes))]
 
     # This is the training loop.
     step_time, loss = 0.0, 0.0
@@ -289,6 +300,8 @@ def train():
           temp = embedding_ops.embedding_lookup(embedding, [6])
           print(embedding[6])
           print(temp)"""
+        # Necessary when session is aborted out of sync with FLAGS.steps_per_checkpoint.
+        current_step += 1
         # Choose a bucket according to data distribution. We pick a random number
         # in [0, 1] and use the corresponding interval in train_buckets_scale.
         random_number_01 = np.random.random_sample()
@@ -302,25 +315,16 @@ def train():
         _, step_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
                                      target_weights, bucket_id, False)
         step_time += (time.time() - start_time) / FLAGS.steps_per_checkpoint
-        loss += step_loss / FLAGS.steps_per_checkpoint
-        current_step += 1
+        loss += step_loss #/ FLAGS.steps_per_checkpoint
+        global_step = model.global_step.eval()
 
         # Writes summaries and also a checkpoint if new best is found.
-        if(current_step%FLAGS.steps_per_checkpoint == 0):
+        if(global_step%FLAGS.steps_per_checkpoint == 0):
+          loss = loss / current_step
           eval_losses = np.asarray(eval_dev_set())
           current_avg_buck_loss = 0.0
           for b in xrange(len(_buckets)):
-            current_avg_buck_loss += train_buckets_dist[b] * eval_losses[b]
-          current_eval_ppx = perplexity(current_avg_buck_loss)
-          current_train_ppx = perplexity(loss)
-          feed = {buck_losses: eval_losses, 
-                  eval_ppx: current_eval_ppx,
-                  train_ppx: current_train_ppx,
-                  average_bucket_loss: current_avg_buck_loss,
-                  train_losses: loss}
-          summary_str = sess.run(merged, feed_dict=feed)
-          global_step = model.global_step.eval()
-          writer.add_summary(summary_str, global_step)
+            current_avg_buck_loss += eval_buckets_dist[b] * eval_losses[b]
           
           sess.run(model.decrement_patience_op)
           # Reset patience if no significant increase in error.
@@ -334,16 +338,42 @@ def train():
             if(global_step > FLAGS.initial_steps):
               model.saver.save(sess, checkpoint_path, global_step=model.global_step)
           
+          # Calculate new means.
+          current_check_step = global_step/FLAGS.steps_per_checkpoint
+          old_train_mean = model.mean_train_error.eval()
+          old_eval_mean = model.mean_eval_error.eval()
+          old_modifier = (current_check_step-1)/current_check_step
+          new_train_mean = old_train_mean*old_modifier + loss/current_check_step
+          new_eval_mean = old_eval_mean*old_modifier + current_avg_buck_loss/current_check_step
+          sess.run(model.mean_train_error.assign(new_train_mean))
+          sess.run(model.mean_eval_error.assign(new_eval_mean))
+          #print ("current step: %d, old train mean: %.4f, old eval mean: %.4f, old modifier: %.4f, new train mean: %.4f, new eval mean: %.4f" %
+          #  (current_check_step, old_train_mean, old_eval_mean, old_modifier, new_train_mean, new_eval_mean))
+
+          # Calculate summaries.
+          current_eval_ppx = perplexity(current_avg_buck_loss)
+          current_train_ppx = perplexity(loss)
+          feed = {buck_losses: eval_losses, 
+                  eval_ppx: current_eval_ppx,
+                  train_ppx: current_train_ppx,
+                  average_bucket_loss: current_avg_buck_loss,
+                  train_losses: loss}
+          summary_str = sess.run(merged, feed_dict=feed)
+          # Write all summaries.
+          writer.add_summary(summary_str, global_step)
+
           # Print statistics for the previous epoch.
           print ("global step %d learning rate %.4f step-time %.2f training perplexity "
                  "%.2f evaluation perplexity %.2f patience %d" % (global_step, model.learning_rate.eval(),
                            step_time, current_train_ppx, current_eval_ppx, model.patience.eval()))
           # Decrease learning rate if no improvement was seen over last 3 times.
-          if len(previous_losses) > 2 and loss > max(previous_losses[-3:]):
+          losses_lookback = 12
+          if len(previous_losses) >= losses_lookback and loss > max(previous_losses[-losses_lookback:]):
             sess.run(model.learning_rate_decay_op)
           previous_losses.append(loss)
 
           step_time, loss = 0.0, 0.0
+          current_step = 0
 
           sys.stdout.flush()
       # END WHILE
@@ -370,10 +400,16 @@ def decode():
     _buckets = [(150, 150)]
 
     # Create model and load parameters.
-    model = create_model(sess, True, vocab)
+    model = create_model(sess, True, vocab, sample_output=True)
     model = init_model(sess, model)
     
     model.batch_size = 1  # We decode one sentence at a time.
+
+    def get_random_numbers():
+      out = []
+      for j in xrange(len(decoder_inputs)):
+        out.append([1 - np.random.uniform()*FLAGS.decode_randomness for i in xrange(model.source_vocab_size)])
+      return out
 
     # Decode from standard input.
     sys.stdout.write("> ")
@@ -394,21 +430,34 @@ def decode():
         encoder_inputs, decoder_inputs, target_weights = model.get_batch(
             {bucket_id: [(token_ids, [])]}, bucket_id)
 
+        random_numbers = get_random_numbers()
         # Get output logits for the sentence.
         _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
-                                         target_weights, bucket_id, True)
+                                         target_weights, bucket_id, True, random_numbers=random_numbers)
 
         # This is a greedy decoder - outputs are just argmaxes of output_logits.
-        outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
+        #outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
+
+        # Throw away first random number and last in output_logits
+        output_logits = output_logits[:-1]
+        random_numbers = random_numbers[1:]
+        outputs = [sample_output(output_logits[l], random_numbers[l]) for l in xrange(len(output_logits))]
         # If there is an EOS symbol in outputs, cut them at that point.
         if data_utils.EOS_ID in outputs:
           outputs = outputs[:outputs.index(data_utils.EOS_ID)]
         # Print out French sentence corresponding to outputs.
         print(" ".join([rev_vocab[output] for output in outputs]))
-
       print("> ", end="")
       sys.stdout.flush()
       sentence = sys.stdin.readline()
+
+def sample_output(logit, rand):
+  logit = logit[0][:]
+  smallest = np.argmin(logit)
+  normed = logit - logit[smallest]
+  noised = np.multiply(normed, rand)
+  #print ("first logit: %.4f, first normed: %.4f, first noised: %.4f" % (logit[0], normed[0], noised[0]))
+  return np.argmax(noised)
 
 
 def self_test():
