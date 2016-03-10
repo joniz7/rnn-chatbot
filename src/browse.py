@@ -2,7 +2,6 @@ import os
 import random
 import operator
 import sys
-import parser
 
 from collections import Counter
 from operator import itemgetter
@@ -23,9 +22,6 @@ test_data_percentage = int(sys.argv[3])
 generateCorpusInfo = False if len(sys.argv) == 4 else bool(sys.argv[4])
 
 execfile("parser.py")
-
-def splitApostrophe(line):
-  return splitApostrophe(line)
 
 trainInputFile = open("../data/train-data.utte", "w")
 trainOutputFile = open("../data/train-data.resp", "w")
