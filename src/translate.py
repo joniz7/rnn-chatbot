@@ -91,6 +91,8 @@ tf.app.flags.DEFINE_float("max_running_time", 60, "The training will terminate a
 tf.app.flags.DEFINE_float("quest_drop_rate", 0.25, "The rate at which question marks will be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("excl_drop_rate", 0.25, "The rate at which exclamation markswill be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("period_drop_rate", 0.25, "The rate at which periods will be dropped. Number between 0 and 1.")
+tf.app.flags.DEFINE_float("comma_drop_date", 0.25, "The rate at which commas will be dropped. Number between 0 and 1.")
+tf.app.flags.DEFINE_float("dots_drop_rate", 0.25, "The rate at which the _DOTS tag will be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("dropout_keep_prob", 0.5, "The probability that dropout is NOT applied to a node.")
 tf.app.flags.DEFINE_float("decode_randomness", 0.1, "Factor determining the randomness when producing the output. Should be a float in [0, 1]")
 
@@ -158,7 +160,10 @@ def create_model(session, forward_only, vocab, sample_output=False):
   with tf.variable_scope("embedding_attention_seq2seq/embedding"):
     tf.get_variable("embedding", [FLAGS.vocab_size, FLAGS.embedding_dimensions])
 
-  punct_marks = data_utils.sentence_to_token_ids(".?!", vocab)
+  # what characters to randomly drop
+  punct_marks = data_utils.sentence_to_token_ids(".?!,_DOTS", vocab)
+  # list of drop rates with the same ordering as above
+  mark_drop_rates = [FLAGS.period_drop_rate, FLAGS.quest_drop_rate, FLAGS.excl_drop_rate, FLAGS.comma_drop_date, FLAGS.dots_drop_rate]
 
   model = seq2seq_model.Seq2SeqModel(
       FLAGS.vocab_size, FLAGS.vocab_size, _buckets,
@@ -166,7 +171,7 @@ def create_model(session, forward_only, vocab, sample_output=False):
       FLAGS.learning_rate, FLAGS.learning_rate_decay_factor,
       forward_only=forward_only, embedding_dimensions=FLAGS.embedding_dimensions,
       initial_accumulator_value=FLAGS.initial_accumulator_value,
-      punct_marks=punct_marks, mark_drop_rates=[FLAGS.period_drop_rate, FLAGS.quest_drop_rate, FLAGS.excl_drop_rate],
+      punct_marks=punct_marks, mark_drop_rates=mark_drop_rates,
       patience=FLAGS.max_patience, dropout_keep_prob=FLAGS.dropout_keep_prob, sample_output=sample_output)
 
   #ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)

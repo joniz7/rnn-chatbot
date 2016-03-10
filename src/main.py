@@ -48,8 +48,8 @@ for arg in sys.argv[1:]:
     if(arg[0][2:] == "vocab_size"):
       print "vocab_size "+arg[1]
       vocab_size = int(arg[1])
-    elif(arg[0][2:] == "embedding_dimension"):
-      print "embedding_dimension "+arg[1]
+    elif(arg[0][2:] == "embedding_dimensions"):
+      print "embedding_dimensions "+arg[1]
       embedding_dimension = int(arg[1])
     elif(arg[0][2:] == "embeddings_filename"):
       print "embeddings_filename "+arg[1]
