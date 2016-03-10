@@ -1,6 +1,7 @@
 from collections import Counter
 import codecs
 import re
+import operator
 
 splitApostropheWords = ["n't", "'s", "'re", "'ve", "'d", "'ll", "'m"]
 punctuationMarks = [",", ".", "!", "?", ":", ";"]
@@ -15,6 +16,7 @@ def getTightJoinTokens(vocab):
 	global splitApostropheWords
 	global punctuationMarks
 	return [vocab.get(w) for w in (splitApostropheWords + punctuationMarks)]
+
 
 def containsAny(str, set):
     """ Check whether sequence str contains ANY of the items in set. """
@@ -71,6 +73,19 @@ def splitSentence(s):
 
 	return words
 
+def isCorrect(line):
+	correct = True
+	line = line.lower().split()
+	if len(line) > 1:
+		correct = not (line[0] == "cut" and (line[1] == "to:" or line[1] == "to"))
+	correct = correct and reduce(operator.and_, [not c.isdigit() for c in line[0]], True)
+	return correct
+
+def removeStars(line):
+	return re.sub("\.(\.+)", " _DOTS ", line)
+
+def purgeLine(line):
+	return removeStars(re.sub("\(.*?\)", "", line.replace("\n", " ").lower())).replace("*", "")
 
 def parseFile(filename):
 	txt = open(filename)
@@ -85,14 +100,22 @@ def parseFile(filename):
 
 	for line in txt:
 		if not line == "\n":
-			if not containsAny(line, ["<", ">","/","\\", "=", "--"]):
-				if allCaps(line) and totalLine:
+			if not containsAny(line, ["<", ">","/","\\", "=", "--"]) and isCorrect(line):
+				line = re.sub("\(.*?\)", "", line.replace("\n", ""))
+				if allCaps(line.replace(" ", "")) and totalLine:
+					#print "%s     %d"%(line, len(line.strip()))
 					#wordSplit = splitSentence(totalLine)
 					#words.append((oldLine, wordSplit))
-					lines.append(re.sub("\(.*?\)", "", totalLine.replace("\n", " ").lower()))
+					lines.append(purgeLine(totalLine))
+					totalLine = ""
+				elif allCaps(line.replace(" ", "")):
+					#print " elif %s     %d"%(line, len(line.strip()))
 					totalLine = ""
 				else:
-					totalLine += line
+					#print " else %s     %d"%(line, len(line.strip()))
+					totalLine += " "+line
+	if totalLine:
+		lines.append(purgeLine(totalLine))
 	return lines
 
 def parseEmbeddings(filename):

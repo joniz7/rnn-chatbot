@@ -93,6 +93,8 @@ tf.app.flags.DEFINE_float("max_running_time", 60, "The training will terminate a
 tf.app.flags.DEFINE_float("quest_drop_rate", 0.25, "The rate at which question marks will be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("excl_drop_rate", 0.25, "The rate at which exclamation markswill be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("period_drop_rate", 0.25, "The rate at which periods will be dropped. Number between 0 and 1.")
+tf.app.flags.DEFINE_float("comma_drop_date", 0.25, "The rate at which commas will be dropped. Number between 0 and 1.")
+tf.app.flags.DEFINE_float("dots_drop_rate", 0.25, "The rate at which the _DOTS tag will be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("dropout_keep_prob", 0.5, "The probability that dropout is NOT applied to a node.")
 tf.app.flags.DEFINE_float("decode_randomness", 0.1, "Factor determining the randomness when producing the output. Should be a float in [0, 1]")
 tf.app.flags.DEFINE_boolean("prettify_decoding", True, "If set, corrects spelling, randomizes numbers, generates a new output if output starts with _EOS and adds _UNK to to end of input")
@@ -161,7 +163,10 @@ def create_model(session, forward_only, vocab, sample_output=False):
   with tf.variable_scope("embedding_attention_seq2seq/embedding"):
     tf.get_variable("embedding", [FLAGS.vocab_size, FLAGS.embedding_dimensions])
 
-  punct_marks = data_utils.sentence_to_token_ids(".?!", vocab)
+  # what characters to randomly drop
+  punct_marks = data_utils.sentence_to_token_ids(".?!,_DOTS", vocab)
+  # list of drop rates with the same ordering as above
+  mark_drop_rates = [FLAGS.period_drop_rate, FLAGS.quest_drop_rate, FLAGS.excl_drop_rate, FLAGS.comma_drop_date, FLAGS.dots_drop_rate]
 
   model = seq2seq_model.Seq2SeqModel(
       FLAGS.vocab_size, FLAGS.vocab_size, _buckets,
@@ -169,7 +174,7 @@ def create_model(session, forward_only, vocab, sample_output=False):
       FLAGS.learning_rate, FLAGS.learning_rate_decay_factor,
       forward_only=forward_only, embedding_dimensions=FLAGS.embedding_dimensions,
       initial_accumulator_value=FLAGS.initial_accumulator_value,
-      punct_marks=punct_marks, mark_drop_rates=[FLAGS.period_drop_rate, FLAGS.quest_drop_rate, FLAGS.excl_drop_rate],
+      punct_marks=punct_marks, mark_drop_rates=mark_drop_rates,
       patience=FLAGS.max_patience, dropout_keep_prob=FLAGS.dropout_keep_prob, sample_output=sample_output)
 
   #ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
@@ -298,6 +303,8 @@ def train():
           temp = embedding_ops.embedding_lookup(embedding, [6])
           print(embedding[6])
           print(temp)"""
+        # Necessary when session is aborted out of sync with FLAGS.steps_per_checkpoint.
+        current_step += 1
         # Choose a bucket according to data distribution. We pick a random number
         # in [0, 1] and use the corresponding interval in train_buckets_scale.
         random_number_01 = np.random.random_sample()
@@ -311,11 +318,12 @@ def train():
         _, step_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
                                      target_weights, bucket_id, False)
         step_time += (time.time() - start_time) / FLAGS.steps_per_checkpoint
-        loss += step_loss / FLAGS.steps_per_checkpoint
+        loss += step_loss #/ FLAGS.steps_per_checkpoint
         global_step = model.global_step.eval()
 
         # Writes summaries and also a checkpoint if new best is found.
         if(global_step%FLAGS.steps_per_checkpoint == 0):
+          loss = loss / current_step
           eval_losses = np.asarray(eval_dev_set())
           current_avg_buck_loss = 0.0
           for b in xrange(len(_buckets)):
@@ -342,6 +350,8 @@ def train():
           new_eval_mean = old_eval_mean*old_modifier + current_avg_buck_loss/current_check_step
           sess.run(model.mean_train_error.assign(new_train_mean))
           sess.run(model.mean_eval_error.assign(new_eval_mean))
+          #print ("current step: %d, old train mean: %.4f, old eval mean: %.4f, old modifier: %.4f, new train mean: %.4f, new eval mean: %.4f" %
+          #  (current_check_step, old_train_mean, old_eval_mean, old_modifier, new_train_mean, new_eval_mean))
 
           # Calculate summaries.
           current_eval_ppx = perplexity(current_avg_buck_loss)
@@ -366,6 +376,7 @@ def train():
           previous_losses.append(loss)
 
           step_time, loss = 0.0, 0.0
+          current_step = 0
 
           sys.stdout.flush()
       # END WHILE
