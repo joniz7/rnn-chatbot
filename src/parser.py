@@ -67,7 +67,7 @@ def isCorrect(line):
 	correct = correct and reduce(operator.and_, [not c.isdigit() for c in line[0]], True)
 	return correct
 
-def removeDots(line):
+def removeStars(line):
 	return re.sub("\.(\.+)", " _DOTS ", line)
 
 
@@ -83,6 +83,9 @@ def parseFile(filename):
 
 	totalLine = ""
 
+def purgeLine(line):
+	return removeStars(re.sub("\(.*?\)", "", line.replace("\n", " ").lower())).replace("*", "")
+
 	for line in txt:
 		if not line == "\n":
 			if not containsAny(line, ["<", ">","/","\\", "=", "--"]) and isCorrect(line):
@@ -91,7 +94,7 @@ def parseFile(filename):
 					#print "%s     %d"%(line, len(line.strip()))
 					#wordSplit = splitSentence(totalLine)
 					#words.append((oldLine, wordSplit))
-					lines.append(removeDots(re.sub("\(.*?\)", "", totalLine.replace("\n", " ").lower())))
+					lines.append(purgeLine(totalLine))
 					totalLine = ""
 				elif allCaps(line.replace(" ", "")):
 					#print " elif %s     %d"%(line, len(line.strip()))
@@ -100,7 +103,7 @@ def parseFile(filename):
 					#print " else %s     %d"%(line, len(line.strip()))
 					totalLine += " "+line
 	if totalLine:
-		lines.append(removeDots(re.sub("\(.*?\)", "", totalLine.replace("\n", " ").lower())))
+		lines.append(purgeLine(totalLine))
 	return lines
 
 def parseEmbeddings(filename):
