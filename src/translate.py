@@ -468,6 +468,7 @@ def decode():
               s = "".join([s, rev_vocab[output]])
             else:
               s = " ".join([s, rev_vocab[output]])
+          s = s.replace("_DOTS", "...")
           print(s)
         else:
           print(" ".join([rev_vocab[output] for output in outputs]))
