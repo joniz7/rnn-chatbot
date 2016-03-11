@@ -51,7 +51,7 @@ from tensorflow.python.ops import embedding_ops
 import data_utils
 import seq2seq_model
 
-os.chdir("src")
+os.chdir("/root/src")
 
 execfile("parser.py")
 

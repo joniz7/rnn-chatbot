@@ -14,8 +14,6 @@ RUN mkdir data; mkdir data/chatlogs; mkdir checkpoints
 
 VOLUME ["data", "checkpoints"]
 
-RUN touch data/helo
-
 # EXPOSE 3000
 
 CMD ["node", "server.js"]
