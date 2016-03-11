@@ -16,6 +16,6 @@ RUN mkdir data; mkdir data/chatlogs; mkdir checkpoints
 
 
 
-# EXPOSE 3000
+EXPOSE 3000
 
 CMD ["node", "server.js"]
