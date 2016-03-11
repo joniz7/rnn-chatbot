@@ -498,11 +498,14 @@ def decode():
       sys.stdout.flush()
       sentence = sys.stdin.readline()
 
-def sample_output(logit, rand):
+def sample_output(logit, rand, replace_UNK=True):
   logit = logit[0][:]
   smallest = np.argmin(logit)
   normed = logit - logit[smallest]
   noised = np.multiply(normed, rand)
+  sorted_idx = np.argsort(noised)
+  if replace_UNK and sorted_idx[-1] == data_utils.UNK_ID:
+    return sorted_idx[-2]
   #print ("first logit: %.4f, first normed: %.4f, first noised: %.4f" % (logit[0], normed[0], noised[0]))
   return np.argmax(noised)
 
