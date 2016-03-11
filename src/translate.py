@@ -460,7 +460,7 @@ def decode():
           outputs = outputs[:outputs.index(data_utils.EOS_ID)]
         # Print out French sentence corresponding to outputs.
         #print(uid+" "+" ".join([rev_vocab[output] for output in outputs]))
-        print(sentence)
+        print(uid+" "+sentence)
       sys.stdout.flush()
       sentence = sys.stdin.readline()
 
