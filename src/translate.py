@@ -414,6 +414,15 @@ def decode():
         out.append([1 - np.random.uniform()*rand_level for i in xrange(model.source_vocab_size)])
       return out
 
+    def replace_zeros_with_rands(input_str):
+      new_str = ""
+      for cha in input_str:
+        if cha == '0':
+          new_str += str(int(np.floor(np.random.uniform()*10)))
+        else:
+          new_str += cha
+      return new_str
+
     # Decode from standard input.
     sys.stdout.write("> ")
     sys.stdout.flush()
@@ -481,7 +490,7 @@ def decode():
               s = "".join([s, rev_vocab[output]])
             else:
               s = " ".join([s, rev_vocab[output]])
-          s = s.replace("_DOTS", "...")
+          s = replace_zeros_with_rands(s.replace("_DOTS", "..."))
           print(s)
         else:
           print(" ".join([rev_vocab[output] for output in outputs]))
