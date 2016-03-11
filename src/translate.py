@@ -408,10 +408,10 @@ def decode():
     
     model.batch_size = 1  # We decode one sentence at a time.
 
-    def get_random_numbers():
+    def get_random_numbers(rand_level):
       out = []
       for j in xrange(len(decoder_inputs)):
-        out.append([1 - np.random.uniform()*FLAGS.decode_randomness for i in xrange(model.source_vocab_size)])
+        out.append([1 - np.random.uniform()*rand_level for i in xrange(model.source_vocab_size)])
       return out
 
     # Decode from standard input.
@@ -444,17 +444,30 @@ def decode():
         encoder_inputs, decoder_inputs, target_weights = model.get_batch(
             {bucket_id: [(token_ids, [])]}, bucket_id)
 
-        random_numbers = get_random_numbers()
-        # Get output logits for the sentence.
-        _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
-                                         target_weights, bucket_id, True, random_numbers=random_numbers)
-        # This is a greedy decoder - outputs are just argmaxes of output_logits.
-        #outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
+        #### Start while no response ####
+        generate_new = True
+        randomness = FLAGS.decode_randomness
+        while(generate_new):
+          generate_new = False
+          random_numbers = get_random_numbers(randomness)
+          # Get output logits for the sentence.
+          _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
+                                           target_weights, bucket_id, True, random_numbers=random_numbers)
+          # This is a greedy decoder - outputs are just argmaxes of output_logits.
+          #outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
 
-        # Throw away first random number and last in output_logits
-        output_logits = output_logits[:-1]
-        random_numbers = random_numbers[1:]
-        outputs = [sample_output(output_logits[l], random_numbers[l]) for l in xrange(len(output_logits))]
+          # Throw away first random number and last logit in output_logits
+          output_logits = output_logits[:-1]
+          random_numbers = random_numbers[1:]
+          outputs = [sample_output(output_logits[l], random_numbers[l]) for l in xrange(len(output_logits))]
+
+          # Generate new response if prettifying and no response is given.
+          # Do not generate new respone if response generation is deterministic.
+          if(FLAGS.prettify_decoding and (not FLAGS.decode_randomness == 0.0) and outputs[0] == data_utils.EOS_ID):
+            generate_new = True
+            randomness *= 1.1 # Increase randomness a little bit so we won't get stuck in an infinite loop.
+        #### End while no response ####
+
         # If there is an EOS symbol in outputs, cut them at that point.
         if data_utils.EOS_ID in outputs:
           outputs = outputs[:outputs.index(data_utils.EOS_ID)]
