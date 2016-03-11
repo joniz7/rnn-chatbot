@@ -13,7 +13,7 @@ chatbots["arenen"]    = new PythonShell("src/translate.py", {pythonOptions: ["-u
 var app = express();
 
 var curRes = undefined;
-var curBot = undefined;
+var curBot = chatbots["arenen"];
 var manual = false;
 app.set("jsonp callback name", "cb");
 

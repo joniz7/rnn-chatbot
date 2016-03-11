@@ -412,6 +412,7 @@ def decode():
         out.append([1 - np.random.uniform()*FLAGS.decode_randomness for i in xrange(model.source_vocab_size)])
       return out
 
+    print("Ready for talking")
     # Decode from standard input.
     sys.stdout.write("> ")
     sys.stdout.flush()
