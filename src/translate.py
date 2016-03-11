@@ -392,6 +392,7 @@ def train():
 
 
 def decode():
+  print("Decode start")
   with tf.Session() as sess:
     # Load vocabularies.
     vocab_path = os.path.join(FLAGS.data_dir,
@@ -412,12 +413,13 @@ def decode():
         out.append([1 - np.random.uniform()*FLAGS.decode_randomness for i in xrange(model.source_vocab_size)])
       return out
 
-    print("Ready for talking")
+    print("Ready for talking!")
     # Decode from standard input.
-    sys.stdout.write("> ")
     sys.stdout.flush()
     sentence = sys.stdin.readline()
     while sentence:
+      uid = sentence.split()[0]
+      sentence = " ".join(sentence.split()[1:])
       # Get token-ids for the input sentence.
       token_ids = data_utils.sentence_to_token_ids(sentence, vocab)
 
@@ -448,8 +450,7 @@ def decode():
         if data_utils.EOS_ID in outputs:
           outputs = outputs[:outputs.index(data_utils.EOS_ID)]
         # Print out French sentence corresponding to outputs.
-        print(" ".join([rev_vocab[output] for output in outputs]))
-      print("> ", end="")
+        print(uid+" "+" ".join([rev_vocab[output] for output in outputs]))
       sys.stdout.flush()
       sentence = sys.stdin.readline()
 
