@@ -57,6 +57,8 @@ print("root: ")
 print(os.listdir("/root"))
 print("\nsrc: ")
 print(os.listdir("/root/src"))
+print("\ndata: ")
+print(os.listdir("/root/data"))
 print("\ncwd: ")
 print(os.listdir(os.getcwd()))
 
