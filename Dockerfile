@@ -12,7 +12,9 @@ RUN npm install
 
 RUN mkdir data; mkdir data/chatlogs; mkdir checkpoints
 
-VOLUME ["data", "checkpoints"]
+#VOLUME ["data", "checkpoints"]
+
+
 
 # EXPOSE 3000
 
