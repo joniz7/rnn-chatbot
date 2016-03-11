@@ -1,1 +1,3 @@
-FROM b.gcr.io/tensorflow/tensorflow:0.7.0
+FROM kyma/docker-nginx
+ADD src /var/www
+CMD 'nginx'
