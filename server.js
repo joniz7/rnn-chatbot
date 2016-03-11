@@ -35,6 +35,7 @@ app.listen(3000, function(){
 });
 
 chatbot.on('message', function(message){
+  console.log("chatbot: ");
   var splitMsg = message.split(" ");
   var key = splitMsg[0];
   message = _.reduce(splitMsg.slice(1), function(a, b){return a+" "+b}, "");
