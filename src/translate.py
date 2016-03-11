@@ -53,6 +53,13 @@ import seq2seq_model
 
 os.chdir("/root/src")
 
+print("root: ")
+print(os.listdir("/root"))
+print("\nsrc: ")
+print(os.listdir("/root/src"))
+print("\ncwd: ")
+print(os.listdir(os.getcwd()))
+
 execfile("parser.py")
 
 tf.app.flags.DEFINE_float("initial_accumulator_value", 0.1, 
