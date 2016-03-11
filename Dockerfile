@@ -1,3 +1,3 @@
 FROM kyma/docker-nginx
-ADD src /var/www
+ADD src/index.html /var/www/index.html
 CMD 'nginx'
