@@ -9,7 +9,7 @@ var xhr = new XMLHttpRequest();
 var ready = true;
 spin.css("visibility", "hidden");
 
-var serverIp = "128.199.46.170";
+var serverIp = "192.168.99.100";
 var serverPort = "3000";
 
 $("form").on("submit", function(){
@@ -23,13 +23,13 @@ send.click(function(){
     addMessage(msg);
 
     $.ajax({
-      url: "http://"+serverIp+":"+serverPort+"/bot/"+msg,
-      jsonp: "cb",
-      dataType: "jsonp",
+      type: "POST",
+      url: "http://"+serverIp+":"+serverPort,
+      data: {msg:msg},
+      dataType: "json",
    
       // Work with the response
       success: function( response ) {
-        console.log(response);
         if(response.msg[0] == ">") response.msg = response.msg.substring(1);
         addMessage(response.msg);
         send.css("visibility", "visible");
