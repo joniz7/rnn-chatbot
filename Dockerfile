@@ -10,6 +10,8 @@ ADD src src
 
 RUN npm install
 
+RUN pip install autocorrect
+
 RUN mkdir data; mkdir data/chatlogs; mkdir checkpoints
 
 #VOLUME ["data", "checkpoints"]
