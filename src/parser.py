@@ -3,6 +3,20 @@ import codecs
 import re
 import operator
 
+splitApostropheWords = ["n't", "'s", "'re", "'ve", "'d", "'ll", "'m"]
+punctuationMarks = [",", ".", "!", "?", ":", ";"]
+
+def splitApostrophe(line):
+	global splitApostropheWords
+	for w in splitApostropheWords:
+		line = line.replace(w, " "+w)
+	return line
+
+def getTightJoinTokens(vocab):
+	global splitApostropheWords
+	global punctuationMarks
+	return [vocab.get(w) for w in (splitApostropheWords + punctuationMarks)]
+
 
 def containsAny(str, set):
     """ Check whether sequence str contains ANY of the items in set. """
