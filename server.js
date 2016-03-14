@@ -67,7 +67,9 @@ chatbot.on('message', function(message){
   var splitMsg = message.split(" ");
   var key = splitMsg[0];
   message = _.reduce(splitMsg.slice(1), function(a, b){return a+" "+b}, "");
+  console.log("key "+ key);
   if(resQ[key]) {
+    console.log("message sent", message);
     resQ[key].json({msg: message});
     delete resQ[key];
   } else {

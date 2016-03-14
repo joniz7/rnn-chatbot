@@ -425,10 +425,13 @@ def decode():
       return new_str
 
     # Decode from standard input.
-    sys.stdout.write("> ")
+#    sys.stdout.write("> ")
     sys.stdout.flush()
     sentence = sys.stdin.readline()
     while sentence:
+      uid = sentence.split()[0]
+      sentence = " ".join(sentence.split()[1:])
+
       # Split at apostrophes and make everything lowercase.
       sentence = parser.splitApostrophe(sentence).lower()
 
@@ -492,10 +495,10 @@ def decode():
             else:
               s = " ".join([s, rev_vocab[output]])
           s = replace_zeros_with_rands(s.replace("_DOTS", "..."))
-          print(s)
+          print(uid+" "+s)
         else:
-          print(" ".join([rev_vocab[output] for output in outputs]))
-      print("> ", end="")
+          print(uid+" "+" ".join([rev_vocab[output] for output in outputs]))
+#      print("", end="")
       sys.stdout.flush()
       sentence = sys.stdin.readline()
 
