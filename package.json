@@ -11,6 +11,7 @@
     "python-shell": "latest",
     "prompt": "latest",
     "lodash": "latest",
-    "shortid": "latest"
+    "shortid": "latest",
+    "body-parser": "latest"
   }
 }

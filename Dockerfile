@@ -6,7 +6,7 @@ RUN sudo apt-get install --yes nodejs
 ADD package.json package.json
 ADD server.js server.js
 
- ADD src src
+ADD src src
 
 RUN npm install
 

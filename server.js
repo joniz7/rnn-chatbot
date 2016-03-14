@@ -5,9 +5,35 @@ var process     = require('process');
 var fs          = require('fs');
 var _           = require('lodash');
 var shortid     = require('shortid');
+var bodyParser  = require('body-parser');
 
 var chatbot = new PythonShell("src/translate.py", {pythonOptions: ["-u"], args:["--embedding_dimensions=300", "--size=5", "--num_layers=1", "--decode=True"]});
 var app = express();
+
+app.use(bodyParser.urlencoded({extended: false})); 
+app.use(bodyParser.json());
+
+// Add headers
+app.use(function (req, res, next) {
+
+    // Website you wish to allow to connect
+    res.setHeader('Access-Control-Allow-Origin', 'http://192.168.99.100');
+
+    // Request methods you wish to allow
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+
+    // Request headers you wish to allow
+    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+
+    // Set to true if you need the website to include cookies in the requests sent
+    // to the API (e.g. in case you use sessions)
+    res.setHeader('Access-Control-Allow-Credentials', true);
+
+    // Pass to next layer of middleware
+    next();
+});
+
+console.log("no port :(");
 
 var resQ = {};
 
@@ -20,13 +46,15 @@ function writeFile(msg) {
   fs.appendFile(filepath, msg+"\n");
 }
 
-app.get("/:message", function(req, res){
-  console.log("client "+req.ip+": "+req.params.message);
+app.post("/", function(req, res){
+  var message = req.body.msg;
+  console.log(req.body);
+  console.log("client "+req.ip+": "+message);
   
-  // writeFile("client: "+req.params.message);
+  // writeFile("client: "+message);
   var uniqueId = shortid.generate();
-  chatbot.send(uniqueId + " " + req.params.message);
-  console.log(uniqueId + " " + req.params.message);
+  chatbot.send(uniqueId + " " + message);
+  console.log(uniqueId + " " + message);
   resQ[uniqueId] = res;
 });
 
@@ -40,7 +68,7 @@ chatbot.on('message', function(message){
   var key = splitMsg[0];
   message = _.reduce(splitMsg.slice(1), function(a, b){return a+" "+b}, "");
   if(resQ[key]) {
-    resQ[key].jsonp({msg: message})
+    resQ[key].json({msg: message});
     delete resQ[key];
   } else {
     console.log(message);

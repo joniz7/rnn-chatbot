@@ -43,6 +43,7 @@ import numpy as np
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
+
 #from tensorflow.models.rnn.translate import data_utils
 #from tensorflow.models.rnn.translate import seq2seq_model
 from tensorflow.python.platform import gfile
@@ -50,17 +51,9 @@ from tensorflow.python.ops import embedding_ops
 
 import data_utils
 import seq2seq_model
+import parser
 
-os.chdir("/root/src")
-
-print("root: ")
-print(os.listdir("/root"))
-print("\nsrc: ")
-print(os.listdir("/root/src"))
-print("\ndata: ")
-print(os.listdir("/root/data"))
-print("\ncwd: ")
-print(os.listdir(os.getcwd()))
+os.chdir("src")
 
 execfile("parser.py")
 
@@ -105,6 +98,7 @@ tf.app.flags.DEFINE_float("comma_drop_date", 0.25, "The rate at which commas wil
 tf.app.flags.DEFINE_float("dots_drop_rate", 0.25, "The rate at which the _DOTS tag will be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("dropout_keep_prob", 0.5, "The probability that dropout is NOT applied to a node.")
 tf.app.flags.DEFINE_float("decode_randomness", 0.1, "Factor determining the randomness when producing the output. Should be a float in [0, 1]")
+tf.app.flags.DEFINE_boolean("prettify_decoding", True, "If set, corrects spelling, randomizes numbers, generates a new output if output starts with _EOS and adds _UNK to to end of input")
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -401,7 +395,6 @@ def train():
 
 
 def decode():
-  print("Decode start")
   with tf.Session() as sess:
     # Load vocabularies.
     vocab_path = os.path.join(FLAGS.data_dir,
@@ -416,21 +409,39 @@ def decode():
     
     model.batch_size = 1  # We decode one sentence at a time.
 
-    def get_random_numbers():
+    def get_random_numbers(rand_level):
       out = []
       for j in xrange(len(decoder_inputs)):
-        out.append([1 - np.random.uniform()*FLAGS.decode_randomness for i in xrange(model.source_vocab_size)])
+        out.append([1 - np.random.uniform()*rand_level for i in xrange(model.source_vocab_size)])
       return out
 
-    print("Ready for talking!")
+    def replace_zeros_with_rands(input_str):
+      new_str = ""
+      for cha in input_str:
+        if cha == '0':
+          new_str += str(int(np.floor(np.random.uniform()*10)))
+        else:
+          new_str += cha
+      return new_str
+
     # Decode from standard input.
+    sys.stdout.write("> ")
     sys.stdout.flush()
     sentence = sys.stdin.readline()
     while sentence:
-      uid = sentence.split()[0]
-      sentence = " ".join(sentence.split()[1:])
+      # Split at apostrophes and make everything lowercase.
+      sentence = parser.splitApostrophe(sentence).lower()
+
+      # Fix _DOTS here. Won't lower() on _DOTS.
+      sentence = parser.removeStars(sentence)
+
       # Get token-ids for the input sentence.
-      token_ids = data_utils.sentence_to_token_ids(sentence, vocab)
+      token_ids = data_utils.sentence_to_token_ids(sentence, vocab, correct_spelling=FLAGS.prettify_decoding)
+
+      # Add _UNK at end of sentence if flagged
+      if FLAGS.prettify_decoding:
+        if not token_ids[-1] in ([data_utils.UNK_ID, vocab["_DOTS"]] + [vocab[pm] for pm in parser.punctuationMarks]):
+          token_ids.append(data_utils.UNK_ID)
 
       if len(token_ids) >= _buckets[-1][0]:
         print("tldr pls")
@@ -443,32 +454,59 @@ def decode():
         encoder_inputs, decoder_inputs, target_weights = model.get_batch(
             {bucket_id: [(token_ids, [])]}, bucket_id)
 
-        random_numbers = get_random_numbers()
-        # Get output logits for the sentence.
-        _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
-                                         target_weights, bucket_id, True, random_numbers=random_numbers)
+        #### Start while no response ####
+        generate_new = True
+        randomness = FLAGS.decode_randomness
+        while(generate_new):
+          generate_new = False
+          random_numbers = get_random_numbers(randomness)
+          # Get output logits for the sentence.
+          _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
+                                           target_weights, bucket_id, True, random_numbers=random_numbers)
+          # This is a greedy decoder - outputs are just argmaxes of output_logits.
+          #outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
 
-        # This is a greedy decoder - outputs are just argmaxes of output_logits.
-        #outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
+          # Throw away first random number and last logit in output_logits
+          output_logits = output_logits[:-1]
+          random_numbers = random_numbers[1:]
+          outputs = [sample_output(output_logits[l], random_numbers[l]) for l in xrange(len(output_logits))]
 
-        # Throw away first random number and last in output_logits
-        output_logits = output_logits[:-1]
-        random_numbers = random_numbers[1:]
-        outputs = [sample_output(output_logits[l], random_numbers[l]) for l in xrange(len(output_logits))]
+          # Generate new response if prettifying and no response is given.
+          # Do not generate new respone if response generation is deterministic.
+          if(FLAGS.prettify_decoding and (not FLAGS.decode_randomness == 0.0) and outputs[0] == data_utils.EOS_ID):
+            generate_new = True
+            randomness *= 1.1 # Increase randomness a little bit so we won't get stuck in an infinite loop.
+        #### End while no response ####
+
         # If there is an EOS symbol in outputs, cut them at that point.
         if data_utils.EOS_ID in outputs:
           outputs = outputs[:outputs.index(data_utils.EOS_ID)]
         # Print out French sentence corresponding to outputs.
-        #print(uid+" "+" ".join([rev_vocab[output] for output in outputs]))
-        print(uid+" "+sentence)
+        if FLAGS.prettify_decoding:
+          # Join in a neat fashion if flag is set.
+          s = ""
+          tightJoinTokens = parser.getTightJoinTokens(vocab)
+          for output in outputs:
+            if output in tightJoinTokens:
+              s = "".join([s, rev_vocab[output]])
+            else:
+              s = " ".join([s, rev_vocab[output]])
+          s = replace_zeros_with_rands(s.replace("_DOTS", "..."))
+          print(s)
+        else:
+          print(" ".join([rev_vocab[output] for output in outputs]))
+      print("> ", end="")
       sys.stdout.flush()
       sentence = sys.stdin.readline()
 
-def sample_output(logit, rand):
+def sample_output(logit, rand, replace_UNK=True):
   logit = logit[0][:]
   smallest = np.argmin(logit)
   normed = logit - logit[smallest]
   noised = np.multiply(normed, rand)
+  sorted_idx = np.argsort(noised)
+  if replace_UNK and sorted_idx[-1] == data_utils.UNK_ID:
+    return sorted_idx[-2]
   #print ("first logit: %.4f, first normed: %.4f, first noised: %.4f" % (logit[0], normed[0], noised[0]))
   return np.argmax(noised)
 
