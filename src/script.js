@@ -9,7 +9,7 @@ var xhr = new XMLHttpRequest();
 var ready = true;
 spin.css("visibility", "hidden");
 
-var serverIp = "localhost";
+var serverIp = "128.199.46.170";
 var serverPort = "3000";
 
 $("form").on("submit", function(){
