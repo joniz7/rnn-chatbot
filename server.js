@@ -8,7 +8,6 @@ var shortid     = require('shortid');
 
 var chatbot = new PythonShell("src/translate.py", {pythonOptions: ["-u"], args:["--embedding_dimensions=300", "--size=5", "--num_layers=1", "--decode=True"]});
 var app = express();
-
 var resQ = {};
 
 app.set("jsonp callback name", "cb");
