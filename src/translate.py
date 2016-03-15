@@ -426,6 +426,7 @@ def decode():
 
     # Decode from standard input.
 #    sys.stdout.write("> ")
+    print("Ready Ready to chat!")
     sys.stdout.flush()
     sentence = sys.stdin.readline()
     while sentence:

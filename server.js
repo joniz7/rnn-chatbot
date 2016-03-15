@@ -7,7 +7,7 @@ var _           = require('lodash');
 var shortid     = require('shortid');
 var bodyParser  = require('body-parser');
 
-var chatbot = new PythonShell("src/translate.py", {pythonOptions: ["-u"], args:["--embedding_dimensions=300", "--size=5", "--num_layers=1", "--decode=True"]});
+var chatbot = new PythonShell("src/translate.py", {pythonOptions: ["-u"], args:["--embedding_dimensions=300", "--num_layers=5", "--decode=True"]});
 var app = express();
 
 app.use(bodyParser.urlencoded({extended: false})); 
