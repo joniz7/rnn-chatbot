@@ -119,14 +119,11 @@ def inject_embeddings(source_path):
       sess.run(embedding.assign(parseEmbeddings(source_path)))
 
 
-def read_data(source_path, target_path, max_size=None):
+def read_data(source_path, max_size=None):
   """Read data from source and target files and put into buckets.
 
   Args:
     source_path: path to the files with token-ids for the source language.
-    target_path: path to the file with token-ids for the target language;
-      it must be aligned with the source file: n-th line contains the desired
-      output for n-th line from the source_path.
     max_size: maximum number of lines to read, all other will be ignored;
       if 0 or None, data files will be read completely (no limit).
 
@@ -137,6 +134,28 @@ def read_data(source_path, target_path, max_size=None):
       len(target) < _buckets[n][1]; source and target are lists of token-ids.
   """
   data_set = [[] for _ in _buckets]
+  with gfile.GFile(source_path, mode="r") as source_file:
+    utterance, response = source_file.readline(), source_file.readline()
+    counter = 0
+    while utterance and response and (not max_size or counter < max_size):
+      counter += 1
+      if counter % 100000 == 0:
+        print("  reading data line %d" % counter)
+        sys.stdout.flush()
+      utte_ids = [int(x) for x in utterance.split()]
+      resp_ids = [int(x) for x in response.split()]
+      resp_ids.append(data_utils.EOS_ID)
+      for bucket_id, (utte_size, resp_size) in enumerate(_buckets):
+        if len(utte_ids) < utte_size and len(resp_ids) < resp_size:
+          data_set[bucket_id].append([utte_ids, resp_ids])
+          break
+      utterance = response
+      response = source_file.readline()
+      if response and int(response.split()[0]) == data_utils.IGNORE_ID:
+        utterance, response = source_file.readline(), source_file.readline()
+  return data_set
+
+"""data_set = [[] for _ in _buckets]
   with gfile.GFile(source_path, mode="r") as source_file:
     with gfile.GFile(target_path, mode="r") as target_file:
       source, target = source_file.readline(), target_file.readline()
@@ -154,7 +173,7 @@ def read_data(source_path, target_path, max_size=None):
             data_set[bucket_id].append([source_ids, target_ids])
             break
         source, target = source_file.readline(), target_file.readline()
-  return data_set
+  return data_set"""
 
 
 def create_model(session, forward_only, vocab, sample_output=False):
@@ -209,7 +228,7 @@ def train():
   # Prepare dialogue data.
   print("Preparing dialogue data in %s" % FLAGS.data_dir)
 
-  utte_train, resp_train, utte_dev, resp_dev,_ = data_utils.prepare_dialogue_data(
+  train_path, dev_path, _ = data_utils.prepare_dialogue_data(
       FLAGS.data_dir, FLAGS.vocab_size)
 
   with tf.Session() as sess:
@@ -225,8 +244,8 @@ def train():
     # Read data into buckets and compute their sizes.
     print ("Reading development and training data (limit: %d)."
            % FLAGS.max_train_data_size)
-    dev_set = read_data(utte_dev, resp_dev)
-    train_set = read_data(utte_train, resp_train, FLAGS.max_train_data_size)
+    dev_set = read_data(dev_path)
+    train_set = read_data(train_path, FLAGS.max_train_data_size)
     train_bucket_sizes = [len(train_set[b]) for b in xrange(len(_buckets))]
     train_total_size = float(sum(train_bucket_sizes))
     eval_bucket_sizes = [len(dev_set[b]) for b in xrange(len(_buckets))]
