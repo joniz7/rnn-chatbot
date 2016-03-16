@@ -70,3 +70,5 @@ data/
 
 # saved checkpoints
 checkpoints/
+
+node_modules/

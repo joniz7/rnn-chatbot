@@ -41,6 +41,7 @@ batch_size = 64
 size = 1024
 num_layers = 3
 decode = False
+split_sentence = False
 
 for arg in sys.argv[1:]:
   arg = arg.split("=")
@@ -69,6 +70,9 @@ for arg in sys.argv[1:]:
     elif(arg[0][2:] == "decode"):
       print "decode "+arg[1]
       decode = bool(arg[1])
+    elif(arg[0][2:] == "split_sentence"):
+      print "split_Sentence "+arg[1]
+      split_sentence = bool(arg[1])
     else:
       print "Bad format on flag %s"%arg[0]
       sys.exit()
@@ -92,7 +96,7 @@ print "========== Checking if training and validation data exists =========="
 if(reduce(operator.and_, map(os.path.isfile, trainingFiles))):
   print "Exists, moving on"
 else:
-  sys.argv = ["browse.py", train_data_percentage, valid_data_percentage, test_data_percentage]
+  sys.argv = ["browse.py", train_data_percentage, valid_data_percentage, test_data_percentage, False, split_sentence]
   execfile("browse.py")
 
 vocabFiles = [data_path+"/vocab"+str(vocab_size), data_path+"/vocab"+str(vocab_size)+".utte"]

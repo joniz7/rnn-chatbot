@@ -14,12 +14,14 @@ if(len(sys.argv) < 4):
   print "Validation data percentage"
   print "Test data percentage"
   print "Generate corpus information? (True/False) (Optional)"
+  print "Split each sentence? (True/False) (Optional)"
   sys.exit()
 
 train_data_percentage = int(sys.argv[1])
 valid_data_percentage = int(sys.argv[2])
 test_data_percentage = int(sys.argv[3])
-generateCorpusInfo = False if len(sys.argv) == 4 else bool(sys.argv[4])
+generateCorpusInfo = False if len(sys.argv) <= 4 else bool(sys.argv[4])
+split_sentence = False if len(sys.argv) <= 5 else bool(sys.argv[5])
 
 execfile("parser.py")
 
@@ -53,7 +55,7 @@ for root, dirs, files in os.walk(os.getcwd()):
 	for f in [f for f in files if ".txt" in f]:
 		if f not in usedMovies:
 			usedMovies.append(f)
-			lines = lines + parseFile(root+"/"+f)
+			lines = lines + parseFile(root+"/"+f, splitSentence = split_sentence)
 			if cnt % 50 == 0:
 				print "Parsing script %d" % cnt
 			cnt += 1
