@@ -360,13 +360,19 @@ def train():
             if(global_step > FLAGS.initial_steps):
               model.saver.save(sess, checkpoint_path, global_step=model.global_step)
           
-          # Calculate new means.
-          current_check_step = global_step/FLAGS.steps_per_checkpoint
+          # Calculate new means. Biased towards the latest data by 1/5.
+          #current_check_step = global_step/FLAGS.steps_per_checkpoint
           old_train_mean = model.mean_train_error.eval()
           old_eval_mean = model.mean_eval_error.eval()
-          old_modifier = (current_check_step-1)/current_check_step
-          new_train_mean = old_train_mean*old_modifier + loss/current_check_step
-          new_eval_mean = old_eval_mean*old_modifier + current_avg_buck_loss/current_check_step
+          old_modifier = 4/5 #current_check_step
+          new_modifier = 1/5
+          if global_step == FLAGS.steps_per_checkpoint:
+            new_train_mean = loss
+            new_eval_mean = current_avg_buck_loss
+          else:
+            new_train_mean = old_train_mean*old_modifier + loss*new_modifier #current_check_step
+            new_eval_mean = old_eval_mean*old_modifier + current_avg_buck_loss*new_modifier #current_check_step
+          #print("global step: %d, new train mean: %.4f, new eval mean: %.4f" % (global_step, new_train_mean, new_eval_mean))
           sess.run(model.mean_train_error.assign(new_train_mean))
           sess.run(model.mean_eval_error.assign(new_eval_mean))
           #print ("current step: %d, old train mean: %.4f, old eval mean: %.4f, old modifier: %.4f, new train mean: %.4f, new eval mean: %.4f" %
