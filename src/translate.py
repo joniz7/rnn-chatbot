@@ -48,6 +48,7 @@ import tensorflow as tf
 #from tensorflow.models.rnn.translate import seq2seq_model
 from tensorflow.python.platform import gfile
 from tensorflow.python.ops import embedding_ops
+from tensorflow.python.framework import ops
 
 import data_utils
 import seq2seq_model
@@ -115,8 +116,9 @@ def inject_embeddings(source_path):
   print("Load embedding from %s"%source_path)
   with tf.variable_scope("embedding_attention_seq2seq/embedding", reuse=True):
     with tf.Session() as sess:
-      embedding = tf.get_variable("embedding")
-      sess.run(embedding.assign(parseEmbeddings(source_path)))
+      with ops.device("/cpu:0"):
+        embedding = tf.get_variable("embedding")
+        sess.run(embedding.assign(parseEmbeddings(source_path)))
 
 
 def read_data(source_path, max_size=None):
@@ -180,7 +182,8 @@ def create_model(session, forward_only, vocab, sample_output=False):
   """Create translation model and initialize or load parameters in session."""
 
   with tf.variable_scope("embedding_attention_seq2seq/embedding"):
-    tf.get_variable("embedding", [FLAGS.vocab_size, FLAGS.embedding_dimensions])
+    with ops.device("/cpu:0"):
+      tf.get_variable("embedding", [FLAGS.vocab_size, FLAGS.embedding_dimensions])
 
   # what characters to randomly drop
   punct_marks = data_utils.sentence_to_token_ids(".?!,_DOTS", vocab)
@@ -217,8 +220,9 @@ def init_model(session, model):
     session.run(tf.initialize_all_variables())
 
     with tf.variable_scope("embedding_attention_seq2seq/embedding", reuse=True): #Inject the embeddings
-      embedding = tf.get_variable("embedding")
-      session.run(embedding.assign(parseEmbeddings(FLAGS.embedding_path)))
+      with ops.device("/cpu:0"):
+        embedding = tf.get_variable("embedding")
+        session.run(embedding.assign(parseEmbeddings(FLAGS.embedding_path)))
   return model
   
 def train():

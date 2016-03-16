@@ -11,7 +11,7 @@ import re
 from tensorflow.python.platform import gfile
 from six.moves import urllib
 
-from autocorrect import spell
+#from autocorrect import spell
 
 # Special vocabulary symbols - we always put them at the start.
 _PAD = "_PAD"
@@ -133,10 +133,10 @@ def sentence_to_token_ids(sentence, vocabulary,
     Returns:
       a list of integers, the token-ids for the sentence.
     """
-    def spell_and_replace(word):
-        if vocabulary.has_key(word):
-            return word
-        return spell(word)
+#    def spell_and_replace(word):
+#        if vocabulary.has_key(word):
+#            return word
+#        return spell(word)
 
     if tokenizer:
         words = tokenizer(sentence)
@@ -146,8 +146,8 @@ def sentence_to_token_ids(sentence, vocabulary,
     if normalize_digits:
         words = [re.sub(_DIGIT_RE, "0", w) for w in words]
 
-    if correct_spelling:
-        words = [spell_and_replace(w) for w in words]
+#    if correct_spelling:
+#        words = [spell_and_replace(w) for w in words]
 
     return [vocabulary.get(w, UNK_ID) for w in words]
 
