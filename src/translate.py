@@ -70,8 +70,10 @@ tf.app.flags.DEFINE_integer("embedding_dimensions", 50, "Dimension of the embedd
 tf.app.flags.DEFINE_integer("size", 1024, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("num_layers", 3, "Number of layers in the model.")
 tf.app.flags.DEFINE_integer("vocab_size", 30000, "Size of our vocabulary")
+tf.app.flags.DEFINE_integer("num_samples", 512, "Number of samples")
 tf.app.flags.DEFINE_string("data_dir", "../data", "Data directory")
 tf.app.flags.DEFINE_string("train_dir", "../data", "Training directory.")
+tf.app.flags.DEFINE_string("train_data_part", None, "What part of the training data to be used.")
 tf.app.flags.DEFINE_string("checkpoint_dir", "../checkpoints", "Training directory.")
 tf.app.flags.DEFINE_integer("max_train_data_size", 0,
                             "Limit on the size of training data (0: no limit).")
@@ -195,7 +197,7 @@ def create_model(session, forward_only, vocab, sample_output=False):
       FLAGS.size, FLAGS.num_layers, FLAGS.max_gradient_norm, FLAGS.batch_size,
       FLAGS.learning_rate, FLAGS.learning_rate_decay_factor,
       forward_only=forward_only, embedding_dimensions=FLAGS.embedding_dimensions,
-      initial_accumulator_value=FLAGS.initial_accumulator_value,
+      initial_accumulator_value=FLAGS.initial_accumulator_value, num_samples=FLAGS.num_samples,
       punct_marks=punct_marks, mark_drop_rates=mark_drop_rates,
       patience=FLAGS.max_patience, dropout_keep_prob=FLAGS.dropout_keep_prob, sample_output=sample_output)
 
@@ -233,7 +235,7 @@ def train():
   print("Preparing dialogue data in %s" % FLAGS.data_dir)
 
   train_path, dev_path, _ = data_utils.prepare_dialogue_data(
-      FLAGS.data_dir, FLAGS.vocab_size)
+      FLAGS.data_dir, FLAGS.vocab_size, FLAGS.train_data_part)
 
   with tf.Session() as sess:
     # Load vocabularies.

@@ -187,7 +187,7 @@ def data_to_token_ids(data_path, target_path, vocabulary_path,
                                 normalize_digits)
                     tokens_file.write(" ".join([str(tok) for tok in token_ids]) + "\n")
 
-def prepare_dialogue_data(data_dir, vocabulary_size):
+def prepare_dialogue_data(data_dir, vocabulary_size, part=None):
     """Load dialogue data from data_dir, create vocabularies and tokenize data.
 
     Args:
@@ -215,6 +215,9 @@ def prepare_dialogue_data(data_dir, vocabulary_size):
     # Create token ids for the training data.
     train_ids_path = train_path + (".ids%d.data" % vocabulary_size)
     data_to_token_ids(train_path + ".data", train_ids_path, vocab_path)
+
+    if part:
+        train_ids_path = train_ids_path + "-dir/part%d"%part
 
     # Create token ids for the development data.
     valid_ids_path = valid_path + (".ids%d.data" % vocabulary_size)
