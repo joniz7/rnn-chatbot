@@ -13,6 +13,29 @@ chatbots["alice"]     = new PythonShell("alice.py", {pythonOptions: ["-u"]});
 chatbots["arenen"]    = new PythonShell("translate.py", {pythonOptions: ["-u"], args:["--size=2550","--num_samples=2048","--embedding_dimensions=300","--batch_size=1","--decode_randomness=0.3", "--vocab_size=100000", "--num_layers=2", "--decode=True"]});
 var app = express();
 
+app.use(bodyParser.urlencoded({extended: false})); 
+app.use(bodyParser.json());
+
+// Add headers
+app.use(function (req, res, next) {
+
+    // Website you wish to allow to connect
+    res.setHeader('Access-Control-Allow-Origin', 'http://128.199.46.170:59254');
+
+    // Request methods you wish to allow
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+
+    // Request headers you wish to allow
+    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+
+    // Set to true if you need the website to include cookies in the requests sent
+    // to the API (e.g. in case you use sessions)
+    res.setHeader('Access-Control-Allow-Credentials', true);
+
+    // Pass to next layer of middleware
+    next();
+});
+
 var curRes = undefined;
 var curBot = undefined;
 var manual = false;
@@ -27,12 +50,13 @@ function writeFile(msg) {
   fs.appendFile(filepath, msg+"\n");
 }
 
-app.get("/bot/:message", function(req, res){
-  console.log("client: "+req.params.message);
-  writeFile("client: "+req.params.message);
+app.post("/", function(req, res){
+  var message = req.body.msg;
+  console.log("client: "+message);
+  writeFile("client: "+message);
   curRes = res;
   if(curBot) {
-    curBot.send(req.params.message);
+    curBot.send(message);
   } else if(!manual) {
     res.status(200).jsonp({msg: "No chatbot available right now :("})
   }
