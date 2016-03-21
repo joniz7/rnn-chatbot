@@ -93,7 +93,7 @@ prompt.start();
 prompt.get('bot', getInput);
 function getInput(err, result) {
   if(manual) {
-    if(result == "exit") {
+    if(result.bot == "exit") {
       manual = false
     } else if(curRes) {
       console.log("sent message");
