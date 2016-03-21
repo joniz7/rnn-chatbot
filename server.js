@@ -21,7 +21,7 @@ app.set("jsonp callback name", "cb");
 var time = new Date();
 
 var filepath = 'data/chatlogs/log'+time.getTime()+'.txt';
-fs.open(filepath, "w");
+fs.openSync(filepath, "w");
 
 function writeFile(msg) {
   fs.appendFile(filepath, msg+"\n");
