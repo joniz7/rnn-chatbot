@@ -10,7 +10,7 @@ var chatbots = {};
 process.chdir("src");
 chatbots["cleverbot"] = new PythonShell("clever.py", {pythonOptions:["-u"]});
 chatbots["alice"]     = new PythonShell("alice.py", {pythonOptions: ["-u"]});
-chatbots["arenen"]    = new PythonShell("translate.py", {pythonOptions: ["-u"], args:["--size=2550","--num_samples=2048","--batch_size=1","--decode_randomness=0.3", "--vocab_size=100000", "--num_layers=2", "--decode=True"]});
+chatbots["arenen"]    = new PythonShell("translate.py", {pythonOptions: ["-u"], args:["--size=2550","--num_samples=2048","--embedding_dimensions=300","--batch_size=1","--decode_randomness=0.3", "--vocab_size=100000", "--num_layers=2", "--decode=True"]});
 var app = express();
 
 var curRes = undefined;
