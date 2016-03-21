@@ -20,7 +20,7 @@ app.set("jsonp callback name", "cb");
 
 var time = new Date();
 
-var filepath = 'data/chatlogs/log'+time.getTime()+'.txt';
+var filepath = '../data/chatlogs/log'+time.getTime()+'.txt';
 fs.openSync(filepath, "w");
 
 function writeFile(msg) {
