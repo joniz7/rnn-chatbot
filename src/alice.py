@@ -1,7 +1,5 @@
 import os
 
-os.chdir("src")
-
 import pyAIML as aiml
 import sys
 

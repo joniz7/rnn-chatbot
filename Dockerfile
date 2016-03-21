@@ -8,11 +8,10 @@ ADD server.js server.js
 
 ADD src src
 
-RUN cd src/chatserver
-
 RUN npm install
 
 RUN pip install autocorrect
+RUN pip install cleverbot
 
 RUN mkdir data; mkdir data/chatlogs; mkdir checkpoints
 
@@ -22,4 +21,4 @@ RUN mkdir data; mkdir data/chatlogs; mkdir checkpoints
 
 EXPOSE 3000
 
-CMD ["node", "src/server.js"]
+CMD ["node", "server.js"]

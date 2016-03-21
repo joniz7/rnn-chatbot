@@ -1,81 +1,91 @@
 var PythonShell = require('python-shell');
 var readline    = require('readline');
 var express     = require('express');
+var prompt      = require('prompt');
 var process     = require('process');
 var fs          = require('fs');
-var _           = require('lodash');
-var shortid     = require('shortid');
-var bodyParser  = require('body-parser');
 
-var chatbot = new PythonShell("src/translate.py", {pythonOptions: ["-u"], args:["--embedding_dimensions=300", "--num_layers=5", "--decode=True", "--decode_randomness=0.2"]});
+var chatbots = {};
+
+process.chdir("src");
+chatbots["cleverbot"] = new PythonShell("clever.py", {pythonOptions:["-u"]});
+chatbots["alice"]     = new PythonShell("alice.py", {pythonOptions: ["-u"]});
+chatbots["arenen"]    = new PythonShell("translate.py", {pythonOptions: ["-u"], args:["--size=2550","--num_samples=2048","--batch_size=1","--decode_randomness=0.3", "--vocab_size=100000", "--num_layers=2", "--decode=True"]});
 var app = express();
 
-app.use(bodyParser.urlencoded({extended: false})); 
-app.use(bodyParser.json());
-
-// Add headers
-app.use(function (req, res, next) {
-
-    // Website you wish to allow to connect
-    res.setHeader('Access-Control-Allow-Origin', 'http://128.199.46.170:59254');
-
-    // Request methods you wish to allow
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
-
-    // Request headers you wish to allow
-    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
-
-    // Set to true if you need the website to include cookies in the requests sent
-    // to the API (e.g. in case you use sessions)
-    res.setHeader('Access-Control-Allow-Credentials', true);
-
-    // Pass to next layer of middleware
-    next();
-});
-
-console.log("no port :(");
-
-var resQ = {};
-
+var curRes = undefined;
+var curBot = undefined;
+var manual = false;
 app.set("jsonp callback name", "cb");
 
 var time = new Date();
-var filepath = 'data/chatlogs/log'+time.getTime()+'.txt';
+
+var filepath = '../data/chatlogs/log'+time.getTime()+'.txt';
 
 function writeFile(msg) {
   fs.appendFile(filepath, msg+"\n");
 }
 
-app.post("/", function(req, res){
-  var message = req.body.msg;
-  console.log(req.body);
-  console.log("client "+req.ip+": "+message);
-  
-  // writeFile("client: "+message);
-  var uniqueId = shortid.generate();
-  chatbot.send(uniqueId + " " + message);
-  console.log(uniqueId + " " + message);
-  resQ[uniqueId] = res;
+app.get("/bot/:message", function(req, res){
+  console.log("client: "+req.params.message);
+  writeFile("client: "+req.params.message);
+  curRes = res;
+  if(curBot) {
+    curBot.send(req.params.message);
+  } else if(!manual) {
+    res.status(200).jsonp({msg: "No chatbot available right now :("})
+  }
 });
 
 app.listen(3000, function(){
   console.log("it is up, go to localhost:3000");
 });
 
-chatbot.on('message', function(message){
-  console.log("chatbot: ");
-  var splitMsg = message.split(" ");
-  var key = splitMsg[0];
-  message = _.reduce(splitMsg.slice(1), function(a, b){return a+" "+b}, "");
-  console.log("key "+ key);
-  if(resQ[key]) {
-    console.log("message sent", message);
-    resQ[key].json({msg: message});
-    delete resQ[key];
-  } else {
-    console.log(message);
+for(var name in chatbots){
+  new function(n){
+    chatbots[n].on('message', function(message){
+    if(curRes) {
+      returnMessage(message);
+    } else {
+      console.log("from "+n+": "+message);
+    }
+    });
+    chatbots[n].on('error', function(error){
+      console.log(error);
+    });
+  }(name);
+}
+
+function returnMessage(message) {
+  if(curRes) {
+    curRes.status(200).jsonp({msg: message});
+    writeFile("server: "+message);
   }
-});
-chatbot.on('error', function(error){
-  console.log(error);
-});
+}
+
+prompt.start();
+prompt.get('bot', getInput);
+function getInput(err, result) {
+  if(manual) {
+    if(result == "exit") {
+      manual = false
+    } else if(curRes) {
+      console.log("sent message");
+      returnMessage(result.bot);
+    }
+  } else {
+    console.log(result.bot + " picked");
+    if(chatbots[result.bot]) {
+      curBot = chatbots[result.bot];
+      writeFile("SWITCHED TO "+result.bot);
+    } else if(result.bot == "manual") {
+      manual = true;
+      curBot = undefined;
+      writeFile("SWITCHED TO manual");
+    } else {
+      console.log("no such bot");
+    }
+  }
+  
+  prompt.get('bot', getInput);
+}
