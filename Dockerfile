@@ -8,6 +8,8 @@ ADD server.js server.js
 
 ADD src src
 
+RUN cd src/chatserver
+
 RUN npm install
 
 RUN pip install autocorrect
@@ -20,4 +22,4 @@ RUN mkdir data; mkdir data/chatlogs; mkdir checkpoints
 
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+CMD ["node", "src/server.js"]
