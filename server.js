@@ -4,6 +4,7 @@ var express     = require('express');
 var prompt      = require('prompt');
 var process     = require('process');
 var fs          = require('fs');
+var bodyParser  = require('body-parser');
 
 var chatbots = {};
 
