@@ -70,11 +70,13 @@ app.listen(3000, function(){
 for(var name in chatbots){
   new function(n){
     chatbots[n].on('message', function(message){
-    if(curRes) {
-      returnMessage(message);
-    } else {
-      console.log("from "+n+": "+message);
-    }
+      setTimeout(function(){
+        if(curRes) {
+          returnMessage(message);
+        } else {
+          console.log("from "+n+": "+message);
+        }
+      }, 1000);
     });
     chatbots[n].on('error', function(error){
       console.log(error);
@@ -84,6 +86,7 @@ for(var name in chatbots){
 
 function returnMessage(message) {
   if(curRes) {
+    console.log("server: "+message);
     curRes.status(200).jsonp({msg: message});
     writeFile("server: "+message);
   }
@@ -108,7 +111,9 @@ function getInput(err, result) {
       manual = true;
       curBot = undefined;
       writeFile("SWITCHED TO manual");
-    } else {
+    } else if(result.bot == "exit") {
+      curBot = undefined;
+    }else {
       console.log("no such bot");
     }
   }
