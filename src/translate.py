@@ -317,13 +317,14 @@ def train():
             train_set, bucket_id)
         _, step_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
                                      target_weights, bucket_id, False)
-        step_time += (time.time() - start_time) / FLAGS.steps_per_checkpoint
+        step_time += (time.time() - start_time)
         loss += step_loss #/ FLAGS.steps_per_checkpoint
         global_step = model.global_step.eval()
 
         # Writes summaries and also a checkpoint if new best is found.
         if(global_step%FLAGS.steps_per_checkpoint == 0):
           loss = loss / current_step
+          step_time = step_time / current_step
           eval_losses = np.asarray(eval_dev_set())
           current_avg_buck_loss = 0.0
           for b in xrange(len(_buckets)):
