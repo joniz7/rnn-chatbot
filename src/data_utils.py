@@ -217,7 +217,7 @@ def prepare_dialogue_data(data_dir, vocabulary_size, part=None):
     data_to_token_ids(train_path + ".data", train_ids_path, vocab_path)
 
     if part:
-        train_ids_path = train_ids_path + "-dir/part%d"%part
+        train_ids_path = train_ids_path + "-dir/part%s"%part
 
     # Create token ids for the development data.
     valid_ids_path = valid_path + (".ids%d.data" % vocabulary_size)

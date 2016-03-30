@@ -125,7 +125,7 @@ class Seq2SeqModel(object):
     if num_layers > 1:
       cell = rnn_cell.MultiRNNCell([single_cell] * num_layers)
       if not forward_only:
-        cell = rnn_cell.MultiRNNCell([dropout_single_cell] * num_layers)
+        cell = rnn_cell.MultiRNNCell(([dropout_single_cell] * (num_layers-1)) + [single_cell])
 
     self.random_numbers = None
     if sample_output:

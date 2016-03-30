@@ -33,6 +33,8 @@ Following flags can be set when run:
 --data_path
 """
 
+os.chdir("src")
+
 # Parameters
 vocab_size = 30000
 embedding_dimension = 50
