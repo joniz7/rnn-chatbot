@@ -92,8 +92,6 @@ class Seq2SeqModel(object):
     self.punct_marks = punct_marks
     self.mark_drop_rates = mark_drop_rates
 
-    random.seed(12345)
-
     # If we use sampled softmax, we need an output projection.
     output_projection = None
     softmax_loss_function = None
