@@ -106,7 +106,8 @@ FLAGS = tf.app.flags.FLAGS
 
 # We use a number of buckets and pad to the closest one for efficiency.
 # See seq2seq_model.Seq2SeqModel for details of how they work.
-_buckets = [(5, 10), (10, 15), (20, 25), (40, 50)]
+#_buckets = [(5, 10), (10, 15), (20, 25), (40, 50)]
+_input_lengths = (25, 25)
 
 
 def inject_embeddings(source_path):
@@ -137,7 +138,7 @@ def read_data(source_path, max_size=None):
       into the n-th bucket, i.e., such that len(source) < _buckets[n][0] and
       len(target) < _buckets[n][1]; source and target are lists of token-ids.
   """
-  data_set = [[] for _ in _buckets]
+  data_set = [] #[[] for _ in _buckets]
   with gfile.GFile(source_path, mode="r") as source_file:
     utterance, response = source_file.readline(), source_file.readline()
     counter = 0
@@ -149,10 +150,7 @@ def read_data(source_path, max_size=None):
       utte_ids = [int(x) for x in utterance.split()]
       resp_ids = [int(x) for x in response.split()]
       resp_ids.append(data_utils.EOS_ID)
-      for bucket_id, (utte_size, resp_size) in enumerate(_buckets):
-        if len(utte_ids) < utte_size and len(resp_ids) < resp_size:
-          data_set[bucket_id].append([utte_ids, resp_ids])
-          break
+          data_set.append([utte_ids, resp_ids])
       utterance = response
       response = source_file.readline()
       if response and int(response.split()[0]) == data_utils.IGNORE_ID:
@@ -193,9 +191,9 @@ def create_model(session, forward_only, vocab, sample_output=False):
   mark_drop_rates = [FLAGS.period_drop_rate, FLAGS.quest_drop_rate, FLAGS.excl_drop_rate, FLAGS.comma_drop_date, FLAGS.dots_drop_rate]
 
   model = seq2seq_model.Seq2SeqModel(
-      FLAGS.vocab_size, FLAGS.vocab_size, _buckets,
+      FLAGS.vocab_size, FLAGS.vocab_size, _input_lengths,
       FLAGS.size, FLAGS.num_layers, FLAGS.max_gradient_norm, FLAGS.batch_size,
-      FLAGS.learning_rate, FLAGS.learning_rate_decay_factor,
+      FLAGS.learning_rate, FLAGS.learning_rate_decay_factor, use_lstm=True,
       forward_only=forward_only, embedding_dimensions=FLAGS.embedding_dimensions,
       initial_accumulator_value=FLAGS.initial_accumulator_value, num_samples=FLAGS.num_samples,
       punct_marks=punct_marks, mark_drop_rates=mark_drop_rates,
@@ -252,35 +250,30 @@ def train():
            % FLAGS.max_train_data_size)
     dev_set = read_data(dev_path)
     train_set = read_data(train_path, FLAGS.max_train_data_size)
-    train_bucket_sizes = [len(train_set[b]) for b in xrange(len(_buckets))]
-    train_total_size = float(sum(train_bucket_sizes))
-    eval_bucket_sizes = [len(dev_set[b]) for b in xrange(len(_buckets))]
-    eval_total_size = float(sum(eval_bucket_sizes))
+    #train_bucket_sizes = [len(train_set[b]) for b in xrange(len(_buckets))]
+    #train_total_size = float(sum(train_bucket_sizes))
+    #eval_bucket_sizes = [len(dev_set[b]) for b in xrange(len(_buckets))]
+    #eval_total_size = float(sum(eval_bucket_sizes))
 
     def eval_dev_set():
-      bucket_losses = []
-      for bucket_id in xrange(len(_buckets)):
-          encoder_inputs, decoder_inputs, target_weights = model.get_batch(
-              dev_set, bucket_id)
-          _, eval_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
-                                       target_weights, bucket_id, True)
-          bucket_losses.append(eval_loss)
-          #eval_ppx = math.exp(eval_loss) if eval_loss < 300 else float('inf')
-          #print("  eval: bucket %d perplexity %.2f" % (bucket_id, eval_ppx))
-      return bucket_losses
+      encoder_inputs, decoder_inputs, target_weights = model.get_batch(
+          dev_set, _input_lengths[0], _input_lengths[1])
+      _, eval_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
+                                   target_weights, True, _input_lengths[0], _input_lengths[1])
+      return eval_loss
 
     def perplexity(loss):
       ppx = math.exp(loss) if loss < 300 else float('inf')
       return ppx
 
     # Setting up summaries
-    buck_losses = tf.placeholder(tf.float32, shape=[len(_buckets)], name="buck_losses")#eval_dev_set()
+    #buck_losses = tf.placeholder(tf.float32, shape=[len(_buckets)], name="buck_losses")#eval_dev_set()
     average_bucket_loss = tf.placeholder(tf.float32, name="average_bucket_loss")
     train_losses = tf.placeholder(tf.float32, name="train_losses")
     eval_ppx = tf.placeholder(tf.float32, name="eval_ppx")
     train_ppx = tf.placeholder(tf.float32, name="train_ppx")
 
-    eval_loss_summary = tf.histogram_summary("eval_bucket_losses", buck_losses)
+    #eval_loss_summary = tf.histogram_summary("eval_bucket_losses", buck_losses)
     eval_avg_loss_summary = tf.scalar_summary("eval_bucket_average_losses",
           average_bucket_loss)
     learning_rate_summary = tf.scalar_summary("learning_rate", model.learning_rate)
@@ -303,12 +296,12 @@ def train():
     # A bucket scale is a list of increasing numbers from 0 to 1 that we'll use
     # to select a bucket. Length of [scale[i], scale[i+1]] is proportional to
     # the size if i-th training bucket, as used later.
-    train_buckets_scale = [sum(train_bucket_sizes[:i + 1]) / train_total_size
-                           for i in xrange(len(train_bucket_sizes))]
+    #train_buckets_scale = [sum(train_bucket_sizes[:i + 1]) / train_total_size
+    #                       for i in xrange(len(train_bucket_sizes))]
 
     # The sizes of the buckets normalized to 1, such that: 
     # sum(eval_buckets_dist) == 1.0
-    eval_buckets_dist = [eval_bucket_sizes[i] / eval_total_size 
+    #eval_buckets_dist = [eval_bucket_sizes[i] / eval_total_size 
                           for i in xrange(len(eval_bucket_sizes))]
 
     # This is the training loop.
@@ -332,16 +325,16 @@ def train():
         current_step += 1
         # Choose a bucket according to data distribution. We pick a random number
         # in [0, 1] and use the corresponding interval in train_buckets_scale.
-        random_number_01 = np.random.random_sample()
-        bucket_id = min([i for i in xrange(len(train_buckets_scale))
-                         if train_buckets_scale[i] > random_number_01])
+        #random_number_01 = np.random.random_sample()
+        #bucket_id = min([i for i in xrange(len(train_buckets_scale))
+        #                 if train_buckets_scale[i] > random_number_01])
 
         # Get a batch and make a step.
         start_time = time.time()
         encoder_inputs, decoder_inputs, target_weights = model.get_batch(
-            train_set, bucket_id)
+            train_set, _input_lengths[0], _input_lengths[1])
         _, step_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
-                                     target_weights, bucket_id, False)
+                                     target_weights, False, _input_lengths[0], _input_lengths[1])
         step_time += (time.time() - start_time)
         loss += step_loss #/ FLAGS.steps_per_checkpoint
         global_step = model.global_step.eval()
