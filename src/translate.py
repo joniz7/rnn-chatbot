@@ -148,7 +148,7 @@ def read_data(source_path, max_size=None):
         data_set.append([utte_ids, resp_ids])
       utterance = response
       response = source_file.readline()
-      if response and int(response.split()[0]) == data_utils.IGNORE_ID:
+      if response and (len(response.split()) == 0 or int(response.split()[0]) == data_utils.IGNORE_ID):
         utterance, response = source_file.readline(), source_file.readline()
   return data_set
 
