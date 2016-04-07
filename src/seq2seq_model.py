@@ -156,7 +156,7 @@ class Seq2SeqModel(object):
       #     self.encoder_inputs, self.decoder_inputs, targets,
       #     self.target_weights, buckets, lambda x, y: seq2seq_f(x, y, True),
       #     softmax_loss_function=softmax_loss_function)
-      self.outputs, states = seq2seq_f(encoder_inputs, decoder_inputs, True)
+      self.outputs, states = seq2seq_f(self.encoder_inputs[:input_lengths[0]], self.decoder_inputs[:input_lengths[1]], True)
       
       # If we use output projection, we need to project outputs for decoding.
       if output_projection is not None:
@@ -170,9 +170,9 @@ class Seq2SeqModel(object):
       #     self.target_weights, buckets,
       #     lambda x, y: seq2seq_f(x, y, False),
       #     softmax_loss_function=softmax_loss_function)
-      self.outputs, states = seq2seq_f(self.encoder_inputs, self.decoder_inputs, False)
+      self.outputs, states = seq2seq_f(self.encoder_inputs[:input_lengths[0]], self.decoder_inputs[:input_lengths[1]], False)
 
-    self.losses = seq2seq.sequence_loss(self.outputs, targets, self.target_weights,
+    self.losses = seq2seq.sequence_loss(self.outputs, targets[:input_lengths[1]], self.target_weights[:input_lengths[1]],
               softmax_loss_function=softmax_loss_function)
 
     # Gradients and SGD update operation for training the model.
@@ -180,7 +180,7 @@ class Seq2SeqModel(object):
     if not forward_only:
       self.gradient_norms = []
       self.updates = []
-      opt = tf.train.AdagradOptimizer(self.learning_rate, initial_accumulator_value=initial_accumulator_value) # Changed from originally gradient descent.
+      opt = tf.train.AdagradOptimizer(learning_rate, initial_accumulator_value=initial_accumulator_value) # Changed from originally gradient descent.
       # opt = tf.train.GradientDescentOptimizer(self.learning_rate) ###############################################################################
       gradients = tf.gradients(self.losses, params)
       clipped_gradients, norm = tf.clip_by_global_norm(gradients,
