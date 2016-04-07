@@ -79,8 +79,6 @@ tf.app.flags.DEFINE_integer("max_train_data_size", 0,
                             "Limit on the size of training data (0: no limit).")
 tf.app.flags.DEFINE_integer("steps_per_checkpoint", 50,
                             "How many training steps to do per checkpoint.")
-tf.app.flags.DEFINE_integer("initial_steps", 0,#10000, 
-                            "Guaranteed number of steps to train")
 tf.app.flags.DEFINE_string("summary_path", "../data/summaries",
                             "Directory for summaries")
 tf.app.flags.DEFINE_boolean("decode", False,
@@ -88,10 +86,6 @@ tf.app.flags.DEFINE_boolean("decode", False,
 tf.app.flags.DEFINE_boolean("self_test", False,
                             "Run a self-test if this is set to True.")
 tf.app.flags.DEFINE_string("embedding_path", "../data/embeddings%d.txt"%tf.app.flags.FLAGS.vocab_size, "The path for the file with initial embeddings")
-tf.app.flags.DEFINE_float("patience_sensitivity", 0.995, 
-                          "determines when an improvement/worsening is significant")
-tf.app.flags.DEFINE_integer("max_patience", 120, 
-                            "The number of checks where model performs worse before stopping")
 tf.app.flags.DEFINE_float("max_running_time", 60, "The training will terminate after at most this many minutes.")
 tf.app.flags.DEFINE_float("quest_drop_rate", 0.25, "The rate at which question marks will be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("excl_drop_rate", 0.25, "The rate at which exclamation markswill be dropped. Number between 0 and 1.")
@@ -150,7 +144,7 @@ def read_data(source_path, max_size=None):
       utte_ids = [int(x) for x in utterance.split()]
       resp_ids = [int(x) for x in response.split()]
       resp_ids.append(data_utils.EOS_ID)
-          data_set.append([utte_ids, resp_ids])
+      data_set.append([utte_ids, resp_ids])
       utterance = response
       response = source_file.readline()
       if response and int(response.split()[0]) == data_utils.IGNORE_ID:
@@ -193,11 +187,12 @@ def create_model(session, forward_only, vocab, sample_output=False):
   model = seq2seq_model.Seq2SeqModel(
       FLAGS.vocab_size, FLAGS.vocab_size, _input_lengths,
       FLAGS.size, FLAGS.num_layers, FLAGS.max_gradient_norm, FLAGS.batch_size,
-      FLAGS.learning_rate, FLAGS.learning_rate_decay_factor, use_lstm=True,
+      FLAGS.learning_rate, use_lstm=True, num_samples=FLAGS.num_samples, 
       forward_only=forward_only, embedding_dimensions=FLAGS.embedding_dimensions,
-      initial_accumulator_value=FLAGS.initial_accumulator_value, num_samples=FLAGS.num_samples,
+      initial_accumulator_value=FLAGS.initial_accumulator_value, 
+      dropout_keep_prob=FLAGS.dropout_keep_prob,
       punct_marks=punct_marks, mark_drop_rates=mark_drop_rates,
-      patience=FLAGS.max_patience, dropout_keep_prob=FLAGS.dropout_keep_prob, sample_output=sample_output)
+      sample_output=sample_output)
 
   #ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
   #if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
@@ -268,20 +263,20 @@ def train():
 
     # Setting up summaries
     #buck_losses = tf.placeholder(tf.float32, shape=[len(_buckets)], name="buck_losses")#eval_dev_set()
-    average_bucket_loss = tf.placeholder(tf.float32, name="average_bucket_loss")
+    evaluation_losses = tf.placeholder(tf.float32, name="evaluation_losses")
     train_losses = tf.placeholder(tf.float32, name="train_losses")
     eval_ppx = tf.placeholder(tf.float32, name="eval_ppx")
     train_ppx = tf.placeholder(tf.float32, name="train_ppx")
 
     #eval_loss_summary = tf.histogram_summary("eval_bucket_losses", buck_losses)
-    eval_avg_loss_summary = tf.scalar_summary("eval_bucket_average_losses",
-          average_bucket_loss)
-    learning_rate_summary = tf.scalar_summary("learning_rate", model.learning_rate)
-    train_avg_loss_summary = tf.scalar_summary("train_losses_avg", train_losses)
+    evaluation_losses_summary = tf.scalar_summary("evaluation_losses_summary",
+          evaluation_losses)
+    #learning_rate_summary = tf.scalar_summary("learning_rate", model.learning_rate)
+    train_losses_summary = tf.scalar_summary("train_losses_avg", train_losses)
     eval_ppx_summary = tf.scalar_summary("eval_ppx_avg", eval_ppx)
     train_ppx_summary = tf.scalar_summary("train_ppx_avg", train_ppx)
-    mean_train_err_summary = tf.scalar_summary("mean_train_err", model.mean_train_error)
-    mean_eval_err_summary = tf.scalar_summary("mean_eval_err", model.mean_eval_error)
+    smoothed_train_losses_summary = tf.scalar_summary("smoothed_train_losses_summary", model.smoothed_train_error)
+    smoothed_evaluation_losses_summary = tf.scalar_summary("smoothed_evaluation_losses_summary", model.smoothed_eval_error)
     best_validation_error_summary = tf.scalar_summary("best_validation_error", model.best_validation_error)
     merged = tf.merge_all_summaries()
     writer = tf.train.SummaryWriter(FLAGS.summary_path, sess.graph_def)
@@ -302,20 +297,18 @@ def train():
     # The sizes of the buckets normalized to 1, such that: 
     # sum(eval_buckets_dist) == 1.0
     #eval_buckets_dist = [eval_bucket_sizes[i] / eval_total_size 
-                          for i in xrange(len(eval_bucket_sizes))]
+    #                      for i in xrange(len(eval_bucket_sizes))]
 
     # This is the training loop.
     step_time, loss = 0.0, 0.0
     current_step = 0
-    previous_losses = []
 
     print("COMMENCE TRAINING!!!!!!")
 
     # create checkpoint_path
     checkpoint_path = os.path.join(FLAGS.checkpoint_dir, "translate.ckpt")
     try:
-      while ((model.patience.eval() > 0 or model.global_step.eval() < FLAGS.initial_steps) 
-            and (time.time() - training_start_time)/60 < FLAGS.max_running_time ):
+      while ((time.time() - training_start_time)/60 < FLAGS.max_running_time ):
         """with tf.variable_scope("embedding_attention_seq2seq/embedding"):
           embedding = sess.run(tf.get_variable("embedding"))
           temp = embedding_ops.embedding_lookup(embedding, [6])
@@ -337,54 +330,38 @@ def train():
                                      target_weights, False, _input_lengths[0], _input_lengths[1])
         step_time += (time.time() - start_time)
         loss += step_loss #/ FLAGS.steps_per_checkpoint
-        global_step = model.global_step.eval()
+        global_step = model.global_step.eval() ############################## START WORKING HERE TOMORROW!!!
 
         # Writes summaries and also a checkpoint if new best is found.
         if(global_step%FLAGS.steps_per_checkpoint == 0):
           loss = loss / current_step
           step_time = step_time / current_step
-          eval_losses = np.asarray(eval_dev_set())
-          current_avg_buck_loss = 0.0
-          for b in xrange(len(_buckets)):
-            current_avg_buck_loss += eval_buckets_dist[b] * eval_losses[b]
+
+          current_evaluation_loss = eval_dev_set()
           
-          sess.run(model.decrement_patience_op)
-          # Reset patience if no significant increase in error.
           lowest_valid_error = model.best_validation_error.eval()
-          if(current_avg_buck_loss*FLAGS.patience_sensitivity < lowest_valid_error):
-            sess.run(model.patience.assign(FLAGS.max_patience))
           # Save model and error if new best is found
-          if(current_avg_buck_loss < lowest_valid_error):
-            sess.run(model.best_validation_error.assign(current_avg_buck_loss))
-            # Don't save model during initial_steps
-            if(global_step > FLAGS.initial_steps):
-              model.saver.save(sess, checkpoint_path, global_step=model.global_step)
+          if(current_evaluation_loss < lowest_valid_error):
+            sess.run(model.best_validation_error.assign(current_evaluation_loss))
+            model.saver.save(sess, checkpoint_path, global_step=model.global_step)
           
-          # Calculate new means. Biased towards the latest data by 1/5.
-          #current_check_step = global_step/FLAGS.steps_per_checkpoint
-          old_train_mean = model.mean_train_error.eval()
-          old_eval_mean = model.mean_eval_error.eval()
-          old_modifier = 4/5 #current_check_step
-          new_modifier = 1/5
-          if global_step == FLAGS.steps_per_checkpoint:
-            new_train_mean = loss
-            new_eval_mean = current_avg_buck_loss
-          else:
-            new_train_mean = old_train_mean*old_modifier + loss*new_modifier #current_check_step
-            new_eval_mean = old_eval_mean*old_modifier + current_avg_buck_loss*new_modifier #current_check_step
-          #print("global step: %d, new train mean: %.4f, new eval mean: %.4f" % (global_step, new_train_mean, new_eval_mean))
-          sess.run(model.mean_train_error.assign(new_train_mean))
-          sess.run(model.mean_eval_error.assign(new_eval_mean))
-          #print ("current step: %d, old train mean: %.4f, old eval mean: %.4f, old modifier: %.4f, new train mean: %.4f, new eval mean: %.4f" %
-          #  (current_check_step, old_train_mean, old_eval_mean, old_modifier, new_train_mean, new_eval_mean))
+          # Calculate new smoothed data points. Biased towards the latest data by smooth_ratio.
+          def smooth_data(old_data, new_data):
+            smooth_ratio = 0.9
+            if global_step == FLAGS.steps_per_checkpoint:
+              return new_data
+            return old_data*smooth_ratio + new_data*(1 - smooth_ratio)
+
+          sess.run(model.smoothed_train_error.assign(smooth_data(model.smoothed_train_error.eval(), loss)))
+          sess.run(model.smoothed_eval_error.assign(smooth_data(model.smoothed_eval_error.eval(), current_evaluation_loss)))
 
           # Calculate summaries.
-          current_eval_ppx = perplexity(current_avg_buck_loss)
+          current_eval_ppx = perplexity(current_evaluation_loss)
           current_train_ppx = perplexity(loss)
           feed = {buck_losses: eval_losses, 
                   eval_ppx: current_eval_ppx,
                   train_ppx: current_train_ppx,
-                  average_bucket_loss: current_avg_buck_loss,
+                  evaluation_losses: current_evaluation_loss,
                   train_losses: loss}
           summary_str = sess.run(merged, feed_dict=feed)
           # Write all summaries.
@@ -394,11 +371,6 @@ def train():
           print ("global step %d learning rate %.4f step-time %.2f training perplexity "
                  "%.2f evaluation perplexity %.2f patience %d" % (global_step, model.learning_rate.eval(),
                            step_time, current_train_ppx, current_eval_ppx, model.patience.eval()))
-          # Decrease learning rate if no improvement was seen over last 3 times.
-          losses_lookback = 12
-          if len(previous_losses) >= losses_lookback and loss > max(previous_losses[-losses_lookback:]):
-            sess.run(model.learning_rate_decay_op)
-          previous_losses.append(loss)
 
           step_time, loss = 0.0, 0.0
           current_step = 0
@@ -425,7 +397,7 @@ def decode():
                                  "vocab%d" % FLAGS.vocab_size)
     vocab, rev_vocab = data_utils.initialize_vocabulary(vocab_path)
 
-    _buckets = [(150, 150)]
+    #_buckets = [(150, 150)]
 
     # Create model and load parameters.
     model = create_model(sess, True, vocab, sample_output=True)
@@ -476,7 +448,7 @@ def decode():
 
         # Get a 1-element batch to feed the sentence to the model.
         encoder_inputs, decoder_inputs, target_weights = model.get_batch(
-            {bucket_id: [(token_ids, [])]}, bucket_id)
+            [(token_ids, [])], _input_lengths[0], _input_lengths[1])
 
         #### Start while no response ####
         generate_new = True
@@ -536,23 +508,24 @@ def sample_output(logit, rand, replace_UNK=True):
 
 
 def self_test():
-  """Test the translation model."""
-  with tf.Session() as sess:
-    print("Self-test for neural translation model.")
-    # Create model with vocabularies of 10, 2 small buckets, 2 layers of 32.
-    model = seq2seq_model.Seq2SeqModel(10, 10, [(3, 3), (6, 6)], 32, 2,
-                                       5.0, 32, 0.3, 0.99, num_samples=8)
-    sess.run(tf.initialize_all_variables())
+  return
+#   """Test the translation model."""
+#   with tf.Session() as sess:
+#     print("Self-test for neural translation model.")
+#     # Create model with vocabularies of 10, 2 small buckets, 2 layers of 32.
+#     model = seq2seq_model.Seq2SeqModel(10, 10, [(3, 3), (6, 6)], 32, 2,
+#                                        5.0, 32, 0.3, 0.99, num_samples=8)
+#     sess.run(tf.initialize_all_variables())
 
-    # Fake data set for both the (3, 3) and (6, 6) bucket.
-    data_set = ([([1, 1], [2, 2]), ([3, 3], [4]), ([5], [6])],
-                [([1, 1, 1, 1, 1], [2, 2, 2, 2, 2]), ([3, 3, 3], [5, 6])])
-    for _ in xrange(5):  # Train the fake model for 5 steps.
-      bucket_id = random.choice([0, 1])
-      encoder_inputs, decoder_inputs, target_weights = model.get_batch(
-          data_set, bucket_id)
-      model.step(sess, encoder_inputs, decoder_inputs, target_weights,
-                 bucket_id, False)
+#     # Fake data set for both the (3, 3) and (6, 6) bucket.
+#     data_set = ([([1, 1], [2, 2]), ([3, 3], [4]), ([5], [6])],
+#                 [([1, 1, 1, 1, 1], [2, 2, 2, 2, 2]), ([3, 3, 3], [5, 6])])
+#     for _ in xrange(5):  # Train the fake model for 5 steps.
+#       bucket_id = random.choice([0, 1])
+#       encoder_inputs, decoder_inputs, target_weights = model.get_batch(
+#           data_set, bucket_id)
+#       model.step(sess, encoder_inputs, decoder_inputs, target_weights,
+#                  bucket_id, False)
 
 
 def main(_):

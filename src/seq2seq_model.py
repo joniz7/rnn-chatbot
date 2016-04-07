@@ -49,9 +49,8 @@ class Seq2SeqModel(object):
 
   def __init__(self, source_vocab_size, target_vocab_size, input_lengths, size,
                num_layers, max_gradient_norm, batch_size, learning_rate,
-               learning_rate_decay_factor, use_lstm=False,
-               num_samples=512, forward_only=False, embedding_dimensions=50, 
-               initial_accumulator_value=0.1, patience=100000, dropout_keep_prob=1.0,
+               use_lstm=False, num_samples=512, forward_only=False, embedding_dimensions=50, 
+               initial_accumulator_value=0.1, dropout_keep_prob=1.0,
                punct_marks=[], mark_drop_rates=[], sample_output=False):
     """Create the model.
 
@@ -81,8 +80,8 @@ class Seq2SeqModel(object):
     self.global_step = tf.Variable(0, trainable=False)
     self.embedding_dimensions=embedding_dimensions
     self.best_validation_error = tf.Variable(float('inf'), trainable=False)
-    self.mean_train_error = tf.Variable(0.0, trainable=False)
-    self.mean_eval_error = tf.Variable(0.0, trainable=False)
+    self.smoothed_train_error = tf.Variable(0.0, trainable=False)
+    self.smoothed_eval_error = tf.Variable(0.0, trainable=False)
     #self.patience = tf.Variable(patience, trainable=False)
     #self.decrement_patience_op = self.patience.assign(self.patience - 1)
     self.punct_marks = punct_marks
@@ -171,9 +170,9 @@ class Seq2SeqModel(object):
       #     self.target_weights, buckets,
       #     lambda x, y: seq2seq_f(x, y, False),
       #     softmax_loss_function=softmax_loss_function)
-      self.outputs, states = seq2seq_f(encoder_inputs, decoder_inputs, False)
+      self.outputs, states = seq2seq_f(self.encoder_inputs, self.decoder_inputs, False)
 
-    self.losses = sequence_loss(self.outputs, targets, weights,
+    self.losses = seq2seq.sequence_loss(self.outputs, targets, self.target_weights,
               softmax_loss_function=softmax_loss_function)
 
     # Gradients and SGD update operation for training the model.
