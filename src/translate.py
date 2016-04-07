@@ -77,6 +77,8 @@ tf.app.flags.DEFINE_string("train_data_part", None, "What part of the training d
 tf.app.flags.DEFINE_string("checkpoint_dir", "../checkpoints", "Training directory.")
 tf.app.flags.DEFINE_integer("max_train_data_size", 0,
                             "Limit on the size of training data (0: no limit).")
+tf.app.flags.DEFINE_integer("max_valid_data_size", 0,
+                            "Limit on the size of validation data (0: no limit).")
 tf.app.flags.DEFINE_integer("steps_per_checkpoint", 50,
                             "How many training steps to do per checkpoint.")
 tf.app.flags.DEFINE_string("summary_path", "../data/summaries",
@@ -209,8 +211,8 @@ def init_model(session, model):
   if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
     print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
     model.saver.restore(session, ckpt.model_checkpoint_path)
-    print("Loaded model with validation error %.2f, global step %d and patience %d" % 
-          (model.best_validation_error.eval(), model.global_step.eval(), model.patience.eval()))
+    print("Loaded model with validation error %.2f, global step %d" % 
+          (model.best_validation_error.eval(), model.global_step.eval()))
   else:
     print("Created model with fresh parameters.")
     session.run(tf.initialize_all_variables())
@@ -244,7 +246,7 @@ def train():
     # Read data into buckets and compute their sizes.
     print ("Reading development and training data (limit: %d)."
            % FLAGS.max_train_data_size)
-    dev_set = read_data(dev_path)
+    dev_set = read_data(dev_path, FLAGS.max_valid_data_size)
     train_set = read_data(train_path, FLAGS.max_train_data_size)
     #train_bucket_sizes = [len(train_set[b]) for b in xrange(len(_buckets))]
     #train_total_size = float(sum(train_bucket_sizes))
@@ -359,8 +361,7 @@ def train():
           # Calculate summaries.
           current_eval_ppx = perplexity(current_evaluation_loss)
           current_train_ppx = perplexity(loss)
-          feed = {buck_losses: eval_losses, 
-                  eval_ppx: current_eval_ppx,
+          feed = {eval_ppx: current_eval_ppx,
                   train_ppx: current_train_ppx,
                   evaluation_losses: current_evaluation_loss,
                   train_losses: loss}
@@ -369,9 +370,9 @@ def train():
           writer.add_summary(summary_str, global_step)
 
           # Print statistics for the previous epoch.
-          print ("global step %d learning rate %.4f step-time %.2f training perplexity "
-                 "%.2f evaluation perplexity %.2f patience %d" % (global_step, model.learning_rate.eval(),
-                           step_time, current_train_ppx, current_eval_ppx, model.patience.eval()))
+          print ("global step %d step-time %.2f training perplexity "
+                 "%.2f evaluation perplexity %.2f" % (global_step,
+                           step_time, current_train_ppx, current_eval_ppx))
 
           step_time, loss = 0.0, 0.0
           current_step = 0
