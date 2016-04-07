@@ -144,7 +144,8 @@ def read_data(source_path, max_size=None):
       utte_ids = [int(x) for x in utterance.split()]
       resp_ids = [int(x) for x in response.split()]
       resp_ids.append(data_utils.EOS_ID)
-      data_set.append([utte_ids, resp_ids])
+      if len(utte_ids) < _input_lengths[0] and len(resp_ids) < _input_lengths[1]:
+        data_set.append([utte_ids, resp_ids])
       utterance = response
       response = source_file.readline()
       if response and int(response.split()[0]) == data_utils.IGNORE_ID:
