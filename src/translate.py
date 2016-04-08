@@ -122,6 +122,7 @@ def inject_embeddings(source_path):
 
 def read_data(source_path, max_size=None):
   """Read data from source and target files and put into buckets.
+      ASSUMES THERE ARE NO EMPTY CONVERSATIONS.
 
   Args:
     source_path: path to the files with token-ids for the source language.
@@ -134,45 +135,65 @@ def read_data(source_path, max_size=None):
       into the n-th bucket, i.e., such that len(source) < _buckets[n][0] and
       len(target) < _buckets[n][1]; source and target are lists of token-ids.
   """
-  data_set = [] #[[] for _ in _buckets]
+  data_set = []
   with gfile.GFile(source_path, mode="r") as source_file:
-    utterance, response = source_file.readline(), source_file.readline()
-    counter = 0
-    while utterance and response and (not max_size or counter < max_size):
-      counter += 1
-      if counter % 100000 == 0:
-        print("  reading data line %d" % counter)
+    conversation_counter = 0
+    line_discard_counter = 0
+    conversation_discard_counter = 0
+    lines_read = 0
+    response = True
+    def read_line():
+      if lines_read % 10 == 0:
+        print("  reading data line %d. Found conversations: %d, discarded conversations: %d, discarded lines: %d." 
+              % (lines_read, conversation_counter, conversation_discard_counter, line_discard_counter))
         sys.stdout.flush()
-      utte_ids = [int(x) for x in utterance.split()]
-      resp_ids = [int(x) for x in response.split()]
-      resp_ids.append(data_utils.EOS_ID)
-      if len(utte_ids) < _input_lengths[0] and len(resp_ids) < _input_lengths[1]:
-        data_set.append([utte_ids, resp_ids])
-      utterance = response
-      response = source_file.readline()
-      if response and (len(response.split()) == 0 or int(response.split()[0]) == data_utils.IGNORE_ID):
-        utterance, response = source_file.readline(), source_file.readline()
-  return data_set
+      return source_file.readline()
+    #END read_line()
+    while response and (not max_size or lines_read < max_size):
+      conversation = []
+      contained_too_long_line = False
 
-"""data_set = [[] for _ in _buckets]
-  with gfile.GFile(source_path, mode="r") as source_file:
-    with gfile.GFile(target_path, mode="r") as target_file:
-      source, target = source_file.readline(), target_file.readline()
-      counter = 0
-      while source and target and (not max_size or counter < max_size):
-        counter += 1
-        if counter % 100000 == 0:
-          print("  reading data line %d" % counter)
-          sys.stdout.flush()
-        source_ids = [int(x) for x in source.split()]
-        target_ids = [int(x) for x in target.split()]
-        target_ids.append(data_utils.EOS_ID)
-        for bucket_id, (source_size, target_size) in enumerate(_buckets):
-          if len(source_ids) < source_size and len(target_ids) < target_size:
-            data_set[bucket_id].append([source_ids, target_ids])
-            break
-        source, target = source_file.readline(), target_file.readline()
-  return data_set"""
+      #Check that we have no empty conversations.
+      first_utt_id = data_utils.IGNORE_ID
+      checked_once = False
+      while first_utt_id == data_utils.IGNORE_ID:
+        if checked_once:
+          print("WARNING, found empty conversation. Check your parser, dude!")
+        utterance = read_line()
+        lines_read += 1
+        utte_ids = [int(x) for x in utterance.split()]
+        first_utt_id = utte_ids[0]
+        checked_once = True
+
+      response = read_line()
+      lines_read += 1
+      resp_ids = [int(x) for x in response.split()]
+
+      while response and resp_ids[0] != data_utils.IGNORE_ID and (not max_size or lines_read < max_size):
+        resp_ids.append(data_utils.EOS_ID)
+        if len(utte_ids) >= _input_lengths[0] or len(resp_ids) >= _input_lengths[1]:
+          contained_too_long_line = True
+
+        conversation.append([utte_ids, resp_ids])
+
+        utterance = response
+        response = read_line()
+        lines_read += 1
+        utte_ids = [int(x) for x in utterance.split()]
+        resp_ids = [int(x) for x in response.split()]
+      #END WHILE
+      if conversation != []: #Check that we even entered the while loop.
+        if not contained_too_long_line:
+          conversation_counter += 1
+          data_set.append(conversation)
+        else:
+          conversation_discard_counter += 1
+          line_discard_counter += len(conversation)
+    #END WHILE
+    print("Done reading data. Found conversations: %d, discarded conversations: %d, discarded lines: %d." 
+      % (conversation_counter, conversation_discard_counter, line_discard_counter))
+    return data_set
+#END DEF
 
 
 def create_model(session, forward_only, vocab, sample_output=False):
@@ -243,15 +264,16 @@ def train():
     print("Creating %d layers of %d units." % (FLAGS.num_layers, FLAGS.size))
     model = create_model(sess, False, vocab)
 
-    # Read data into buckets and compute their sizes.
-    print ("Reading development and training data (limit: %d)."
-           % FLAGS.max_train_data_size)
+    # Read data
+    print ("Reading validation data (limit: %d)."
+           % FLAGS.max_valid_data_size)
     dev_set = read_data(dev_path, FLAGS.max_valid_data_size)
+    print ("Reading training data (limit: %d)."
+           % FLAGS.max_train_data_size)
     train_set = read_data(train_path, FLAGS.max_train_data_size)
-    #train_bucket_sizes = [len(train_set[b]) for b in xrange(len(_buckets))]
-    #train_total_size = float(sum(train_bucket_sizes))
-    #eval_bucket_sizes = [len(dev_set[b]) for b in xrange(len(_buckets))]
-    #eval_total_size = float(sum(eval_bucket_sizes))
+
+    dev_set = dev_set[0]
+    train_set = train_set[0]
 
     def eval_dev_set():
       encoder_inputs, decoder_inputs, target_weights = model.get_batch(
