@@ -143,7 +143,7 @@ def read_data(source_path, max_size=None):
     lines_read = 0
     response = True
     def read_line():
-      if lines_read % 10 == 0:
+      if lines_read % 100000 == 0:
         print("  reading data line %d. Found conversations: %d, discarded conversations: %d, discarded lines: %d." 
               % (lines_read, conversation_counter, conversation_discard_counter, line_discard_counter))
         sys.stdout.flush()
@@ -273,7 +273,6 @@ def train():
     train_set = read_data(train_path, FLAGS.max_train_data_size)
 
     dev_set = dev_set[0]
-    train_set = train_set[0]
 
     def eval_dev_set():
       encoder_inputs, decoder_inputs, target_weights = model.get_batch(
@@ -327,6 +326,7 @@ def train():
     # This is the training loop.
     step_time, loss = 0.0, 0.0
     current_step = 0
+    current_conversations = None
 
     print("COMMENCE TRAINING!!!!!!")
 
@@ -341,16 +341,17 @@ def train():
           print(temp)"""
         # Necessary when session is aborted out of sync with FLAGS.steps_per_checkpoint.
         current_step += 1
-        # Choose a bucket according to data distribution. We pick a random number
-        # in [0, 1] and use the corresponding interval in train_buckets_scale.
-        #random_number_01 = np.random.random_sample()
-        #bucket_id = min([i for i in xrange(len(train_buckets_scale))
-        #                 if train_buckets_scale[i] > random_number_01])
-
         # Get a batch and make a step.
         start_time = time.time()
+        current_conversations, same_conv, next_inputs = model.get_conversation_batch(train_set, current_conversations)
         encoder_inputs, decoder_inputs, target_weights = model.get_batch(
-            train_set, _input_lengths[0], _input_lengths[1])
+            next_inputs, _input_lengths[0], _input_lengths[1], batched_data=True)
+        print("current_conversations")
+        print(current_conversations)
+        print("same_conv")
+        print(same_conv)
+        print("next_inputs")
+        print(next_inputs)
         _, step_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
                                      target_weights, False, _input_lengths[0], _input_lengths[1])
         step_time += (time.time() - start_time)

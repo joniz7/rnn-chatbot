@@ -262,16 +262,61 @@ class Seq2SeqModel(object):
     else:
       return None, outputs[0], outputs[1:]  # No gradient norm, loss, outputs.
 
-  def get_batch(self, data, encoder_size, decoder_size):
-    """Get a random batch of data from the specified bucket, prepare for step.
+  def get_conversation_batch(self, data, prev_conv=None):
+    """Get a batch and a list keeping track of the batched conversations. 
+       Provide prev_conv with the last return value of 'conversations' 
+       to fill in conversations that have ended, if this function has 
+       been called previously.
+
+    Args:
+      data: contains lists of pairs of input and output data that we use 
+        to create a batch.
+      prev_conv: A list of size batch_size containing lists of 
+        [input, output] pairs. None if function hasn't been called before.
+
+    Returns:
+      The triple (conversations, same_conv).
+        conversations: The same type as prev_conv. Contains a list of 
+          conversations, where each conversation has the remaining lines 
+          after taking one batch.
+        same_conv: A list of size batch_size containing integers
+          where same_conv[i] == 0 if conversations[i] contains a new
+          conversation, 1 otherwise.
+        next_inputs: A list os length batch_size containing pairs of the 
+          next inputs.
+    """
+    if prev_conv is None:
+      prev_conv = []
+      for i in xrange(self.batch_size):
+        prev_conv.append(random.choice(data))
+    same_conv = []
+    next_inputs = []
+    for i in xrange(self.batch_size):
+      # Add a new random conversation if current one is empty.
+      if len(prev_conv[i]) == 0:
+        same_conv.append(0)
+        prev_conv[i] = random.choice(data)
+      else:
+        same_conv.append(1)
+      # Create a batch entry and remove first line from conversation.
+      next_inputs.append(prev_conv[i][0])
+      prev_conv[i] = prev_conv[i][1:]
+
+    return (prev_conv, same_conv, next_inputs)
+
+
+  def get_batch(self, data, encoder_size, decoder_size, batched_data=False):
+    """Get a random batch of data, prepare for step.
 
     To feed data in step(..) it must be a list of batch-major vectors, while
     data here contains single length-major cases. So the main logic of this
     function is to re-index data cases to be in the proper format for feeding.
 
     Args:
-      data: contains
-        lists of pairs of input and output data that we use to create a batch.
+      data: contains lists of pairs of input and output data that we use to 
+        create a batch.
+      batched_data: if True, data is of size batch_size, and all elements 
+        should be used from it in order.
 
     Returns:
       The triple (encoder_inputs, decoder_inputs, target_weights) for
@@ -282,8 +327,11 @@ class Seq2SeqModel(object):
 
     # Get a random batch of encoder and decoder inputs from data,
     # pad them if needed, reverse encoder inputs and add GO to decoder.
-    for _ in xrange(self.batch_size):
-      encoder_input, decoder_input = random.choice(data)
+    for bi in xrange(self.batch_size):
+      if not batched_data:
+        encoder_input, decoder_input = random.choice(data)
+      else:
+        encoder_input, decoder_input = data[bi]
 
       # Encoder inputs are padded and then reversed.
       encoder_pad = [data_utils.PAD_ID] * (encoder_size - len(encoder_input))
