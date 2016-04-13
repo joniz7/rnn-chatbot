@@ -648,7 +648,7 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
                                 feed_previous=False, dtype=dtypes.float32,
                                 scope=None, initial_state_attention=False, 
                                 embedding_dimension=50, sample_output=False, 
-                                random_numbers=None):
+                                random_numbers=None, initial_state=None, sequence_lengths=None):
   """Embedding sequence-to-sequence model with attention.
 
   This model first embeds encoder_inputs by a newly created embedding (of shape
@@ -695,7 +695,7 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
       our_embedding = variable_scope.get_variable("embedding", [num_encoder_symbols, embedding_dimension]) #######
     encoder_cell = rnn_cell.EmbeddingWrapper(cell, embedding=our_embedding)
     encoder_outputs, encoder_state = rnn.rnn(
-        encoder_cell, encoder_inputs, dtype=dtype)
+        encoder_cell, encoder_inputs, initial_state=initial_state, dtype=dtype, sequence_length=sequence_lengths)
 
     # First calculate a concatenation of encoder outputs to put attention on.
     top_states = [array_ops.reshape(e, [-1, 1, cell.output_size])

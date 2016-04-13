@@ -121,12 +121,13 @@ class Seq2SeqModel(object):
       if not forward_only:
         cell = rnn_cell.MultiRNNCell([dropout_single_cell] * num_layers)
     ### TODO check that dropout is done correctly. (between right layers)
+    self.zero_state_f = cell.zero_state(batch_size, tf.float32)
 
     self.random_numbers = None
     if sample_output:
       self.random_numbers = tf.placeholder(tf.float32, shape=[None, self.source_vocab_size], name="random_numbers")
     # The seq2seq function: we use embedding for the input and attention.
-    def seq2seq_f(encoder_inputs, decoder_inputs, do_decode):
+    def seq2seq_f(encoder_inputs, decoder_inputs, do_decode, initial_state, sequence_lengths):
       return seq2seq.embedding_attention_seq2seq(
           encoder_inputs, decoder_inputs, cell, source_vocab_size,
           target_vocab_size, output_projection=output_projection,
@@ -134,6 +135,8 @@ class Seq2SeqModel(object):
           sample_output=sample_output, random_numbers=self.random_numbers)
 
     # Feeds for inputs.
+    self.initial_state_ph = tf.placeholder(tf.float32, shape=[batch_size, cell.state_size], name="initial_state")
+    self.sequence_lengths_ph = tf.placeholder(tf.int32, shape=[batch_size], name="sequence_lengths")
     self.encoder_inputs = []
     self.decoder_inputs = []
     self.target_weights = []
@@ -152,11 +155,8 @@ class Seq2SeqModel(object):
 
     # Training outputs and losses.
     if forward_only:
-      # self.outputs, self.losses = seq2seq.model_with_buckets(
-      #     self.encoder_inputs, self.decoder_inputs, targets,
-      #     self.target_weights, buckets, lambda x, y: seq2seq_f(x, y, True),
-      #     softmax_loss_function=softmax_loss_function)
-      self.outputs, states = seq2seq_f(self.encoder_inputs[:input_lengths[0]], self.decoder_inputs[:input_lengths[1]], True)
+      self.outputs, self.states = seq2seq_f(self.encoder_inputs[:input_lengths[0]], self.decoder_inputs[:input_lengths[1]], True, 
+                                        self.initial_state_ph, self.sequence_lengths_ph)
       
       # If we use output projection, we need to project outputs for decoding.
       if output_projection is not None:
@@ -165,12 +165,8 @@ class Seq2SeqModel(object):
             for output in self.outputs
         ]
     else:
-      # self.outputs, self.losses = seq2seq.model_with_buckets(
-      #     self.encoder_inputs, self.decoder_inputs, targets,
-      #     self.target_weights, buckets,
-      #     lambda x, y: seq2seq_f(x, y, False),
-      #     softmax_loss_function=softmax_loss_function)
-      self.outputs, states = seq2seq_f(self.encoder_inputs[:input_lengths[0]], self.decoder_inputs[:input_lengths[1]], False)
+      self.outputs, self.states = seq2seq_f(self.encoder_inputs[:input_lengths[0]], self.decoder_inputs[:input_lengths[1]], False,
+                                        self.initial_state_ph, self.sequence_lengths_ph)
 
     self.losses = seq2seq.sequence_loss(self.outputs, targets[:input_lengths[1]], self.target_weights[:input_lengths[1]],
               softmax_loss_function=softmax_loss_function)
@@ -192,7 +188,7 @@ class Seq2SeqModel(object):
     self.saver = tf.train.Saver(tf.all_variables())
 
   def step(self, session, encoder_inputs, decoder_inputs, target_weights,
-           forward_only, encoder_size, decoder_size, random_numbers=None):
+           forward_only, encoder_size, decoder_size, encoder_input_lengths, initial_state=None, random_numbers=None):
     """Run a step of the model feeding the given inputs.
 
     Args:
@@ -203,8 +199,8 @@ class Seq2SeqModel(object):
       forward_only: whether to do the backward step or only forward.
 
     Returns:
-      A triple consisting of gradient norm (or None if we did not do backward),
-      average perplexity, and the outputs.
+      A quadruple consisting of gradient norm (or None if we did not do backward),
+      average perplexity, the outputs and the final state.
 
     Raises:
       ValueError: if length of encoder_inputs, decoder_inputs, or
@@ -213,13 +209,13 @@ class Seq2SeqModel(object):
     # Check if the sizes match.
     #encoder_size, decoder_size = self.buckets[bucket_id]
     if len(encoder_inputs) != encoder_size:
-      raise ValueError("Encoder length must be equal to the one in bucket,"
+      raise ValueError("Encoder length must be equal to the given length,"
                        " %d != %d." % (len(encoder_inputs), encoder_size))
     if len(decoder_inputs) != decoder_size:
-      raise ValueError("Decoder length must be equal to the one in bucket,"
+      raise ValueError("Decoder length must be equal to the given length,"
                        " %d != %d." % (len(decoder_inputs), decoder_size))
     if len(target_weights) != decoder_size:
-      raise ValueError("Weights length must be equal to the one in bucket,"
+      raise ValueError("Weights length must be equal to the given length,"
                        " %d != %d." % (len(target_weights), decoder_size))
 
     # Applies word drop on words in punct_marks
@@ -244,13 +240,20 @@ class Seq2SeqModel(object):
     last_target = self.decoder_inputs[decoder_size].name
     input_feed[last_target] = np.zeros([self.batch_size], dtype=np.int32)
 
+    if initial_state is None:
+      input_feed[self.initial_state_ph.name] = session.run(self.zero_state_f)
+    else:
+      input_feed[self.initial_state_ph.name] = initial_state
+    input_feed[self.sequence_lengths_ph.name] = encoder_input_lengths
+
     # Output feed: depends on whether we do a backward step or not.
     if not forward_only:
       output_feed = [self.updates,  # Update Op that does SGD.
                      self.gradient_norms,  # Gradient norm.
-                     self.losses]  # Loss for this batch.
+                     self.losses,
+                     self.states]  # Loss for this batch.
     else:
-      output_feed = [self.losses]  # Loss for this batch.
+      output_feed = [self.losses, self.states]  # Loss for this batch.
       for l in xrange(decoder_size):  # Output logits.
         output_feed.append(self.outputs[l])
       if random_numbers is not None:
@@ -258,9 +261,9 @@ class Seq2SeqModel(object):
 
     outputs = session.run(output_feed, input_feed)
     if not forward_only:
-      return outputs[1], outputs[2], None  # Gradient norm, loss, no outputs.
+      return outputs[1], outputs[2], None, outputs[3]  # Gradient norm, loss, no outputs, final states.
     else:
-      return None, outputs[0], outputs[1:]  # No gradient norm, loss, outputs.
+      return None, outputs[0], outputs[2:], outputs[1]  # No gradient norm, loss, outputs, final states.
 
   def get_conversation_batch(self, data, prev_conv=None):
     """Get a batch and a list keeping track of the batched conversations. 

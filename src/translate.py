@@ -277,7 +277,7 @@ def train():
     def eval_dev_set():
       encoder_inputs, decoder_inputs, target_weights = model.get_batch(
           dev_set, _input_lengths[0], _input_lengths[1])
-      _, eval_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
+      _, eval_loss, _, _ = model.step(sess, encoder_inputs, decoder_inputs,
                                    target_weights, True, _input_lengths[0], _input_lengths[1])
       return eval_loss
 
@@ -327,6 +327,7 @@ def train():
     step_time, loss = 0.0, 0.0
     current_step = 0
     current_conversations = None
+    last_states = sess.run(model.zero_state_f) # Only to generate states of correct sizes.
 
     print("COMMENCE TRAINING!!!!!!")
 
@@ -344,26 +345,27 @@ def train():
         # Get a batch and make a step.
         start_time = time.time()
         current_conversations, same_conv, next_inputs = model.get_conversation_batch(train_set, current_conversations)
+        utterance_lengths = [len(utt) for utt, resp in next_inputs]
+
+        # Set a state to 0s if it is a new conversation.
+        assert (len(same_conv) == len(last_states)) # TODO:REMOVE
+        for c in xrange(len(same_conv)):
+          last_states[c] = [same_conv[c]*s for s in last_states[c]]
+
         encoder_inputs, decoder_inputs, target_weights = model.get_batch(
             next_inputs, _input_lengths[0], _input_lengths[1], batched_data=True)
-        print("current_conversations")
-        print(current_conversations)
-        print("same_conv")
-        print(same_conv)
-        print("next_inputs")
-        print(next_inputs)
-        _, step_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
-                                     target_weights, False, _input_lengths[0], _input_lengths[1])
+        _, step_loss, _, new_state = model.step(sess, encoder_inputs, decoder_inputs,
+                                     target_weights, False, _input_lengths[0], _input_lengths[1], utterance_lengths, initial_state=last_states)
         step_time += (time.time() - start_time)
         loss += step_loss #/ FLAGS.steps_per_checkpoint
-        global_step = model.global_step.eval() ############################## START WORKING HERE TOMORROW!!!
+        global_step = model.global_step.eval()
 
         # Writes summaries and also a checkpoint if new best is found.
         if(global_step%FLAGS.steps_per_checkpoint == 0):
           loss = loss / current_step
           step_time = step_time / current_step
 
-          current_evaluation_loss = eval_dev_set()
+          current_evaluation_loss = 0 #eval_dev_set()
           
           lowest_valid_error = model.best_validation_error.eval()
           # Save model and error if new best is found
