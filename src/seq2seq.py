@@ -442,7 +442,7 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
       stored decoder state and attention states.
 
   Returns:
-    A tuple of the form (outputs, state), where:
+    A tuple of the form (outputs, state, states), where:
       outputs: A list of the same length as decoder_inputs of 2D Tensors of
         shape [batch_size x output_size]. These represent the generated outputs.
         Output i is computed from input i (which is either the i-th element
@@ -510,6 +510,7 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
       return ds
 
     outputs = []
+    states = []
     prev = None
     batch_attn_size = array_ops.pack([batch_size, attn_size])
     attns = [array_ops.zeros(batch_attn_size, dtype=dtype)
@@ -543,8 +544,9 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
         # We do not propagate gradients over the loop function.
         prev = array_ops.stop_gradient(output)
       outputs.append(output)
+      states.append(state)
 
-  return outputs, state
+  return outputs, state, states
 
 
 def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
@@ -721,19 +723,19 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
       reuse = None if feed_previous_bool else True
       with variable_scope.variable_scope(variable_scope.get_variable_scope(),
                                          reuse=reuse):
-        outputs, state = embedding_attention_decoder(
+        outputs, state, states = embedding_attention_decoder(
             decoder_inputs, encoder_state, attention_states, cell,
             num_decoder_symbols, num_heads=num_heads, output_size=output_size,
             output_projection=output_projection,
             feed_previous=feed_previous_bool,
             initial_state_attention=initial_state_attention, 
             embedding_dimension=embedding_dimension, sample_output=sample_output, random_numbers=random_numbers)
-        return outputs + [state]
+        return outputs + [state] + [states]
 
     outputs_and_state = control_flow_ops.cond(feed_previous,
                                               lambda: decoder(True),
                                               lambda: decoder(False))
-    return outputs_and_state[:-1], outputs_and_state[-1]
+    return outputs_and_state[:-2], outputs_and_state[-2], outputs_and_state[-1]
 
 
 def one2many_rnn_seq2seq(encoder_inputs, decoder_inputs_dict, cell,

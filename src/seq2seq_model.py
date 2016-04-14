@@ -155,7 +155,7 @@ class Seq2SeqModel(object):
 
     # Training outputs and losses.
     if forward_only:
-      self.outputs, self.states = seq2seq_f(self.encoder_inputs[:input_lengths[0]], self.decoder_inputs[:input_lengths[1]], True, 
+      self.outputs, self.state, self.all_states = seq2seq_f(self.encoder_inputs[:input_lengths[0]], self.decoder_inputs[:input_lengths[1]], True, 
                                         self.initial_state_ph, self.sequence_lengths_ph)
       
       # If we use output projection, we need to project outputs for decoding.
@@ -165,7 +165,7 @@ class Seq2SeqModel(object):
             for output in self.outputs
         ]
     else:
-      self.outputs, self.states = seq2seq_f(self.encoder_inputs[:input_lengths[0]], self.decoder_inputs[:input_lengths[1]], False,
+      self.outputs, self.state, self.all_states = seq2seq_f(self.encoder_inputs[:input_lengths[0]], self.decoder_inputs[:input_lengths[1]], False,
                                         self.initial_state_ph, self.sequence_lengths_ph)
 
     self.losses = seq2seq.sequence_loss(self.outputs, targets[:input_lengths[1]], self.target_weights[:input_lengths[1]],
@@ -251,9 +251,12 @@ class Seq2SeqModel(object):
       output_feed = [self.updates,  # Update Op that does SGD.
                      self.gradient_norms,  # Gradient norm.
                      self.losses,
-                     self.states]  # Loss for this batch.
+                     self.state]#,
+                     #self.all_states]  # Loss for this batch.
+      for s in self.all_states:
+        output_feed.append(s)
     else:
-      output_feed = [self.losses, self.states]  # Loss for this batch.
+      output_feed = [self.losses, self.state]#, self.all_states]  # Loss for this batch.
       for l in xrange(decoder_size):  # Output logits.
         output_feed.append(self.outputs[l])
       if random_numbers is not None:
@@ -261,9 +264,9 @@ class Seq2SeqModel(object):
 
     outputs = session.run(output_feed, input_feed)
     if not forward_only:
-      return outputs[1], outputs[2], None, outputs[3]  # Gradient norm, loss, no outputs, final states.
+      return outputs[1], outputs[2], None, outputs[3], outputs[4:]#outputs[4]  # Gradient norm, loss, no outputs, final state, all states.
     else:
-      return None, outputs[0], outputs[2:], outputs[1]  # No gradient norm, loss, outputs, final states.
+      return None, outputs[0], outputs[3:], outputs[1], []#outputs[2]  # No gradient norm, loss, outputs, final state, all states.
 
   def get_conversation_batch(self, data, prev_conv=None):
     """Get a batch and a list keeping track of the batched conversations. 

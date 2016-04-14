@@ -243,7 +243,33 @@ def init_model(session, model):
         embedding = tf.get_variable("embedding")
         session.run(embedding.assign(parseEmbeddings(FLAGS.embedding_path)))
   return model
+
+
+def train_step(model, data_set, last_state, session, last_conversations=None):
+
+  current_conversations, same_conv, next_inputs = model.get_conversation_batch(data_set, last_conversations)
+  utterance_lengths = []
+  response_lengths = []
+  for utt, resp in next_inputs:
+    utterance_lengths.append(len(utt))
+    response_lengths.append(len(resp))
+
+  # Set a state to 0s if it is a new conversation.
+  assert (len(same_conv) == len(last_state) == FLAGS.batch_size) # TODO: remove assert
+  for c in xrange(len(same_conv)):
+    last_state[c] = [same_conv[c]*s for s in last_state[c]]
+
+  encoder_inputs, decoder_inputs, target_weights = model.get_batch(
+      next_inputs, _input_lengths[0], _input_lengths[1], batched_data=True)
+  _, step_loss, _, new_state, all_states = model.step(session, encoder_inputs, decoder_inputs,
+                               target_weights, False, _input_lengths[0], _input_lengths[1], utterance_lengths, initial_state=last_state)
   
+  assert (len(new_state) == FLAGS.batch_size == len(response_lengths)) # TODO: remove assert
+  for b in xrange(len(new_state)):
+    new_state[b] = all_states[response_lengths[b] - 1][b] # i.e. if dec-inp is of length 2 (t_1, _EOS), we want the 2nd idx (i=1) state.
+
+  return current_conversations, new_state, step_loss
+
 def train():
   training_start_time = time.time()
 
@@ -272,14 +298,23 @@ def train():
            % FLAGS.max_train_data_size)
     train_set = read_data(train_path, FLAGS.max_train_data_size)
 
-    dev_set = dev_set[0]
+    def eval_dev_set(num_batches):
+      """ Evaluates a sample of the dev-set
+        args:
+          num_batches: Number of batches to evaluate (chosen randomly).
+            Total number of data points evaluated will be num_batches*batch_size.
 
-    def eval_dev_set():
-      encoder_inputs, decoder_inputs, target_weights = model.get_batch(
-          dev_set, _input_lengths[0], _input_lengths[1])
-      _, eval_loss, _, _ = model.step(sess, encoder_inputs, decoder_inputs,
-                                   target_weights, True, _input_lengths[0], _input_lengths[1])
-      return eval_loss
+        returns:
+          The loss averaged over batches. Longer conversations will have greater 
+            impact on the loss than smaller ones.
+      """
+      total_losses = 0
+      current_conversations = None
+      last_state = sess.run(model.zero_state_f) # Only to generate states of correct sizes.
+      for _ in xrange(num_batches):
+        current_conversations, last_state, step_loss = train_step(model, dev_set, last_state, sess, last_conversations=current_conversations)
+        total_losses += step_loss
+      return total_losses/num_batches
 
     def perplexity(loss):
       ppx = math.exp(loss) if loss < 300 else float('inf')
@@ -311,23 +346,11 @@ def train():
 
     print("Model initialized!")
 
-
-    # A bucket scale is a list of increasing numbers from 0 to 1 that we'll use
-    # to select a bucket. Length of [scale[i], scale[i+1]] is proportional to
-    # the size if i-th training bucket, as used later.
-    #train_buckets_scale = [sum(train_bucket_sizes[:i + 1]) / train_total_size
-    #                       for i in xrange(len(train_bucket_sizes))]
-
-    # The sizes of the buckets normalized to 1, such that: 
-    # sum(eval_buckets_dist) == 1.0
-    #eval_buckets_dist = [eval_bucket_sizes[i] / eval_total_size 
-    #                      for i in xrange(len(eval_bucket_sizes))]
-
     # This is the training loop.
     step_time, loss = 0.0, 0.0
     current_step = 0
     current_conversations = None
-    last_states = sess.run(model.zero_state_f) # Only to generate states of correct sizes.
+    last_state = sess.run(model.zero_state_f) # Only to generate states of correct sizes.
 
     print("COMMENCE TRAINING!!!!!!")
 
@@ -343,19 +366,31 @@ def train():
         # Necessary when session is aborted out of sync with FLAGS.steps_per_checkpoint.
         current_step += 1
         # Get a batch and make a step.
-        start_time = time.time()
+        start_time = time.time()#############
+        current_conversations, last_state, step_loss = train_step(model, train_set, last_state, sess, last_conversations=current_conversations)
+        """
         current_conversations, same_conv, next_inputs = model.get_conversation_batch(train_set, current_conversations)
-        utterance_lengths = [len(utt) for utt, resp in next_inputs]
+        utterance_lengths = []
+        response_lengths = []
+        for utt, resp in next_inputs:
+          utterance_lengths.append(len(utt))
+          response_lengths.append(len(resp))
 
         # Set a state to 0s if it is a new conversation.
-        assert (len(same_conv) == len(last_states)) # TODO:REMOVE
+        assert (len(same_conv) == len(last_state) == FLAGS.batch_size) # TODO: remove assert
         for c in xrange(len(same_conv)):
-          last_states[c] = [same_conv[c]*s for s in last_states[c]]
+          last_state[c] = [same_conv[c]*s for s in last_state[c]]
 
         encoder_inputs, decoder_inputs, target_weights = model.get_batch(
             next_inputs, _input_lengths[0], _input_lengths[1], batched_data=True)
-        _, step_loss, _, new_state = model.step(sess, encoder_inputs, decoder_inputs,
-                                     target_weights, False, _input_lengths[0], _input_lengths[1], utterance_lengths, initial_state=last_states)
+        _, step_loss, _, new_state, all_states = model.step(sess, encoder_inputs, decoder_inputs,
+                                     target_weights, False, _input_lengths[0], _input_lengths[1], utterance_lengths, initial_state=last_state)
+        
+        assert (len(new_state) == FLAGS.batch_size == len(response_lengths)) # TODO: remove assert
+        for b in xrange(len(new_state)):
+          new_state[b] = all_states[response_lengths[b] - 1][b] # i.e. if dec-inp is of length 2 (t_1, _EOS), we want the 2nd idx (i=1) state.
+        last_state = new_state##################
+        """
         step_time += (time.time() - start_time)
         loss += step_loss #/ FLAGS.steps_per_checkpoint
         global_step = model.global_step.eval()
@@ -365,7 +400,9 @@ def train():
           loss = loss / current_step
           step_time = step_time / current_step
 
-          current_evaluation_loss = 0 #eval_dev_set()
+          dev_eval_time = time.time()
+          current_evaluation_loss = eval_dev_set(3)
+          dev_eval_time = time.time() - dev_eval_time
           
           lowest_valid_error = model.best_validation_error.eval()
           # Save model and error if new best is found
@@ -395,9 +432,9 @@ def train():
           writer.add_summary(summary_str, global_step)
 
           # Print statistics for the previous epoch.
-          print ("global step %d step-time %.2f training perplexity "
-                 "%.2f evaluation perplexity %.2f" % (global_step,
-                           step_time, current_train_ppx, current_eval_ppx))
+          print ("global step: %d, average step-time: %.2f, evaluation time: %.2f, training perplexity: "
+                 "%.2f, evaluation perplexity: %.2f" % (global_step,
+                           step_time, dev_eval_time, current_train_ppx, current_eval_ppx))
 
           step_time, loss = 0.0, 0.0
           current_step = 0
