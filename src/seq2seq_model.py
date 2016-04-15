@@ -253,8 +253,6 @@ class Seq2SeqModel(object):
                      self.losses,
                      self.state]#,
                      #self.all_states]  # Loss for this batch.
-      for s in self.all_states:
-        output_feed.append(s)
     else:
       output_feed = [self.losses, self.state]#, self.all_states]  # Loss for this batch.
       for l in xrange(decoder_size):  # Output logits.
@@ -262,11 +260,13 @@ class Seq2SeqModel(object):
       if random_numbers is not None:
         input_feed[self.random_numbers.name] = random_numbers
 
+    for s in self.all_states:
+      output_feed.append(s)
     outputs = session.run(output_feed, input_feed)
     if not forward_only:
       return outputs[1], outputs[2], None, outputs[3], outputs[4:]#outputs[4]  # Gradient norm, loss, no outputs, final state, all states.
     else:
-      return None, outputs[0], outputs[3:], outputs[1], []#outputs[2]  # No gradient norm, loss, outputs, final state, all states.
+      return None, outputs[0], outputs[2:(decoder_size+2)], outputs[1], outputs[(decoder_size+2):]#outputs[2]  # No gradient norm, loss, outputs, final state, all states.
 
   def get_conversation_batch(self, data, prev_conv=None):
     """Get a batch and a list keeping track of the batched conversations. 

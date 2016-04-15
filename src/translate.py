@@ -245,7 +245,7 @@ def init_model(session, model):
   return model
 
 
-def train_step(model, data_set, last_state, session, last_conversations=None):
+def train_step(model, data_set, last_state, session, forward_only, last_conversations=None):
 
   current_conversations, same_conv, next_inputs = model.get_conversation_batch(data_set, last_conversations)
   utterance_lengths = []
@@ -262,9 +262,10 @@ def train_step(model, data_set, last_state, session, last_conversations=None):
   encoder_inputs, decoder_inputs, target_weights = model.get_batch(
       next_inputs, _input_lengths[0], _input_lengths[1], batched_data=True)
   _, step_loss, _, new_state, all_states = model.step(session, encoder_inputs, decoder_inputs,
-                               target_weights, False, _input_lengths[0], _input_lengths[1], utterance_lengths, initial_state=last_state)
+                               target_weights, forward_only, _input_lengths[0], _input_lengths[1], utterance_lengths, initial_state=last_state)
   
   assert (len(new_state) == FLAGS.batch_size == len(response_lengths)) # TODO: remove assert
+  assert (len(all_states) == _input_lengths[1])
   for b in xrange(len(new_state)):
     new_state[b] = all_states[response_lengths[b] - 1][b] # i.e. if dec-inp is of length 2 (t_1, _EOS), we want the 2nd idx (i=1) state.
 
@@ -312,7 +313,7 @@ def train():
       current_conversations = None
       last_state = sess.run(model.zero_state_f) # Only to generate states of correct sizes.
       for _ in xrange(num_batches):
-        current_conversations, last_state, step_loss = train_step(model, dev_set, last_state, sess, last_conversations=current_conversations)
+        current_conversations, last_state, step_loss = train_step(model, dev_set, last_state, sess, True, last_conversations=current_conversations)
         total_losses += step_loss
       return total_losses/num_batches
 
@@ -367,7 +368,7 @@ def train():
         current_step += 1
         # Get a batch and make a step.
         start_time = time.time()#############
-        current_conversations, last_state, step_loss = train_step(model, train_set, last_state, sess, last_conversations=current_conversations)
+        current_conversations, last_state, step_loss = train_step(model, train_set, last_state, sess, False, last_conversations=current_conversations)
         """
         current_conversations, same_conv, next_inputs = model.get_conversation_batch(train_set, current_conversations)
         utterance_lengths = []
@@ -440,6 +441,7 @@ def train():
           current_step = 0
 
           sys.stdout.flush()
+        # END IF
       # END WHILE
       print("Training stopped after running out of time, at step %d" % model.global_step.eval())
       print("Saving model...")
