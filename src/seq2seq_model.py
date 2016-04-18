@@ -343,15 +343,15 @@ class Seq2SeqModel(object):
       encoder_pad = [data_utils.PAD_ID] * (encoder_size - len(encoder_input))
       #encoder_inputs.append(list(reversed(encoder_input + encoder_pad)))
       encoder_inputs.append(encoder_input + encoder_pad)
-      print("    encoder inputs:")
-      print(encoder_inputs)
+      #print("    encoder inputs:")
+      #print(encoder_inputs)
 
       # Decoder inputs get an extra "GO" symbol, and are padded then.
       decoder_pad_size = decoder_size - len(decoder_input) - 1
       decoder_inputs.append([data_utils.GO_ID] + decoder_input +
                             [data_utils.PAD_ID] * decoder_pad_size)
-      print("    decoder inputs:")
-      print(decoder_inputs)
+      #print("    decoder inputs:")
+      #print(decoder_inputs)
 
     # Now we create batch-major vectors from the data selected above.
     batch_encoder_inputs, batch_decoder_inputs, batch_weights = [], [], []

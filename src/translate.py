@@ -139,59 +139,57 @@ def read_data(source_path, max_size=None):
   with gfile.GFile(source_path, mode="r") as source_file:
     conversation_counter = 0
     line_discard_counter = 0
-    conversation_discard_counter = 0
     lines_read = 0
-    response = True
+    end_of_file = False
     def read_line():
       if lines_read % 100000 == 0:
-        print("  reading data line %d. Found conversations: %d, discarded conversations: %d, discarded lines: %d." 
-              % (lines_read, conversation_counter, conversation_discard_counter, line_discard_counter))
+        print("  reading data line %d. Found conversations: %d, discarded lines: %d." 
+              % (lines_read, conversation_counter, line_discard_counter))
         sys.stdout.flush()
       return source_file.readline()
     #END read_line()
-    while response and (not max_size or lines_read < max_size):
+    while not end_of_file and (not max_size or lines_read < max_size):
       conversation = []
-      contained_too_long_line = False
+      utterance, response = True, True
 
-      #Check that we have no empty conversations.
-      first_utt_id = data_utils.IGNORE_ID
-      checked_once = False
-      while first_utt_id == data_utils.IGNORE_ID:
-        if checked_once:
-          print("WARNING, found empty conversation. Check your parser, dude!")
+      while (not max_size or lines_read + 1 < max_size):
+        # read two lines, exit loop if conversation divider is found or end of file.
         utterance = read_line()
-        lines_read += 1
         utte_ids = [int(x) for x in utterance.split()]
-        first_utt_id = utte_ids[0]
-        checked_once = True
-
-      response = read_line()
-      lines_read += 1
-      resp_ids = [int(x) for x in response.split()]
-
-      while response and resp_ids[0] != data_utils.IGNORE_ID and (not max_size or lines_read < max_size):
-        resp_ids.append(data_utils.EOS_ID)
-        if len(utte_ids) >= _input_lengths[0] or len(resp_ids) >= _input_lengths[1]:
-          contained_too_long_line = True
-
-        conversation.append([utte_ids, resp_ids])
-
-        utterance = response
+        lines_read += 1
+        if (not utterance) or utte_ids[0] == data_utils.IGNORE_ID:
+          break
         response = read_line()
         lines_read += 1
-        utte_ids = [int(x) for x in utterance.split()]
         resp_ids = [int(x) for x in response.split()]
+        if (not response) or resp_ids[0] == data_utils.IGNORE_ID:
+          break
+
+        # append EOS to response ids
+        resp_ids.append(data_utils.EOS_ID)
+
+        # cut of conversation if sentence is too long, and then read lines until next conversation.
+        if len(utte_ids) >= _input_lengths[0] or len(resp_ids) >= _input_lengths[1]:
+          found_divider = False
+          line_discard_counter += 1
+          while not found_divider:
+            line_discard_counter += 1
+            temp = [int(x) for x in read_line().split()]
+            if not temp:
+              end_of_file = True
+              break
+            found_divider = temp[0] == data_utils.IGNORE_ID
+          break
+
+        conversation.append([utte_ids, resp_ids])
       #END WHILE
+      end_of_file = not (response and utterance)
       if conversation != []: #Check that we even entered the while loop.
-        if not contained_too_long_line:
-          conversation_counter += 1
-          data_set.append(conversation)
-        else:
-          conversation_discard_counter += 1
-          line_discard_counter += len(conversation)
+        conversation_counter += 1
+        data_set.append(conversation)
     #END WHILE
-    print("Done reading data. Found conversations: %d, discarded conversations: %d, discarded lines: %d." 
-      % (conversation_counter, conversation_discard_counter, line_discard_counter))
+    print("Done reading data. Found conversations: %d, discarded lines: %d." 
+      % (conversation_counter, line_discard_counter))
     return data_set
 #END DEF
 
