@@ -247,7 +247,7 @@ def train_step(model, data_set, last_state, session, forward_only, last_conversa
 
   current_conversations, same_conv, next_inputs = model.get_conversation_batch(data_set, last_conversations)
   utterance_lengths = []
-  response_lengths = []
+  response_lengths = [] #Excluding _GO symbol.
   for utt, resp in next_inputs:
     utterance_lengths.append(len(utt))
     response_lengths.append(len(resp))
@@ -265,19 +265,20 @@ def train_step(model, data_set, last_state, session, forward_only, last_conversa
   assert (len(new_state) == FLAGS.batch_size == len(response_lengths)) # TODO: remove assert
   assert (len(all_states) == _input_lengths[1])
   print("--------TAKING STEP!----------")
+  """print("   input pair:")
+  print(encoder_inputs)
+  print(decoder_inputs)"""
   for b in xrange(len(new_state)):
-    print("--- Batch %d" % b)
+    """print("--- Batch %d" % b)
     print(" Response length: %d" % response_lengths[b])
-    print("   input pair:")
-    print(encoder_inputs)
-    print(decoder_inputs)
+    """
     new_state[b] = all_states[response_lengths[b] - 1][b] # i.e. if dec-inp is of length 2 (t_1, _EOS), we want the 2nd idx (i=1) state.
-    print(" --First state--")
+    """print(" --First state--")
     print(all_states[0][b])
     print("   last state:")
     print(last_state[b])
     print("   new state:")
-    print(new_state[b])
+    print(new_state[b])"""
 
   return current_conversations, new_state, step_loss
 

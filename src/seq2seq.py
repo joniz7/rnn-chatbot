@@ -707,6 +707,7 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
     # Decoder.
     output_size = None
     if output_projection is None:
+      raise ValueError("output_projection must be provided! OutputProjectionWrapper will not work with modified attention")
       cell = rnn_cell.OutputProjectionWrapper(cell, num_decoder_symbols)
       output_size = num_decoder_symbols
 
