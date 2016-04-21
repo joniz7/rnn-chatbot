@@ -19,7 +19,7 @@ _GO = "_GO"
 _EOS = "_EOS"
 _UNK = "_UNK"
 _DOTS = "_DOTS"
-_IGNORE = "_IGNORE"
+_IGNORE = "_NEWCONVO"
 _START_VOCAB = [_PAD, _GO, _EOS, _UNK, _DOTS, _IGNORE]
 
 PAD_ID = 0
