@@ -1,3 +1,3 @@
-#!/bin/bash
-echo "source!!"
-python -u ./src/translate.py --vocab_size=30000 --size=1024 --num_layers=3 --batch_size=64 --max_running_time=40 --embedding_dimensions=300
+#cd "./src"
+python -u ./src/translate.py --vocab_size=30000 --size=1 --num_layers=1 --batch_size=1 --max_running_time=40 --embedding_dimensions=50 --checkpoint_dir="../checkpoints/1" --summary_path="../data/summaries/1" > ./logs1.txt &
+python -u ./src/translate.py --vocab_size=30000 --size=1 --num_layers=1 --batch_size=1 --max_running_time=40 --embedding_dimensions=50 --checkpoint_dir="../checkpoints/2" --summary_path="../data/summaries/2" > ./logs2.txt
