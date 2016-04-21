@@ -59,9 +59,7 @@ execfile("parser.py")
 
 tf.app.flags.DEFINE_float("initial_accumulator_value", 0.1, 
                           "Starting value for the accumulators in Adagrad, must be positive")
-tf.app.flags.DEFINE_float("learning_rate", 0.5, "Learning rate.")
-tf.app.flags.DEFINE_float("learning_rate_decay_factor", 0.99,
-                          "Learning rate decays by this much.")
+tf.app.flags.DEFINE_float("learning_rate", 0.1, "Learning rate.")
 tf.app.flags.DEFINE_float("max_gradient_norm", 5.0,
                           "Clip gradients to this norm.")
 tf.app.flags.DEFINE_integer("batch_size", 64,
@@ -70,7 +68,7 @@ tf.app.flags.DEFINE_integer("embedding_dimensions", 50, "Dimension of the embedd
 tf.app.flags.DEFINE_integer("size", 1024, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("num_layers", 3, "Number of layers in the model.")
 tf.app.flags.DEFINE_integer("vocab_size", 30000, "Size of our vocabulary")
-tf.app.flags.DEFINE_integer("num_samples", 512, "Number of samples")
+tf.app.flags.DEFINE_integer("num_samples", 2048, "Number of samples")
 tf.app.flags.DEFINE_string("data_dir", "../data", "Data directory")
 tf.app.flags.DEFINE_string("train_dir", "../data", "Training directory.")
 tf.app.flags.DEFINE_string("train_data_part", None, "What part of the training data to be used.")
@@ -95,14 +93,11 @@ tf.app.flags.DEFINE_float("period_drop_rate", 0.25, "The rate at which periods w
 tf.app.flags.DEFINE_float("comma_drop_date", 0.25, "The rate at which commas will be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("dots_drop_rate", 0.25, "The rate at which the _DOTS tag will be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("dropout_keep_prob", 0.5, "The probability that dropout is NOT applied to a node.")
-tf.app.flags.DEFINE_float("decode_randomness", 0.1, "Factor determining the randomness when producing the output. Should be a float in [0, 1]")
+tf.app.flags.DEFINE_float("decode_randomness", 0.0, "Factor determining the randomness when producing the output. Should be a float in [0, 1]")
 tf.app.flags.DEFINE_boolean("prettify_decoding", True, "If set, corrects spelling, randomizes numbers, generates a new output if output starts with _EOS and adds _UNK to to end of input")
 
 FLAGS = tf.app.flags.FLAGS
 
-# We use a number of buckets and pad to the closest one for efficiency.
-# See seq2seq_model.Seq2SeqModel for details of how they work.
-#_buckets = [(5, 10), (10, 15), (20, 25), (40, 50)]
 _input_lengths = (25, 25)
 
 
@@ -139,59 +134,57 @@ def read_data(source_path, max_size=None):
   with gfile.GFile(source_path, mode="r") as source_file:
     conversation_counter = 0
     line_discard_counter = 0
-    conversation_discard_counter = 0
     lines_read = 0
-    response = True
+    end_of_file = False
     def read_line():
       if lines_read % 100000 == 0:
-        print("  reading data line %d. Found conversations: %d, discarded conversations: %d, discarded lines: %d." 
-              % (lines_read, conversation_counter, conversation_discard_counter, line_discard_counter))
+        print("  reading data line %d. Found conversations: %d, discarded lines: %d." 
+              % (lines_read, conversation_counter, line_discard_counter))
         sys.stdout.flush()
       return source_file.readline()
     #END read_line()
-    while response and (not max_size or lines_read < max_size):
+    while not end_of_file and (not max_size or lines_read < max_size):
       conversation = []
-      contained_too_long_line = False
+      utterance, response = True, True
 
-      #Check that we have no empty conversations.
-      first_utt_id = data_utils.IGNORE_ID
-      checked_once = False
-      while first_utt_id == data_utils.IGNORE_ID:
-        if checked_once:
-          print("WARNING, found empty conversation. Check your parser, dude!")
+      while (not max_size or lines_read + 1 < max_size):
+        # read two lines, exit loop if conversation divider is found or end of file.
         utterance = read_line()
-        lines_read += 1
         utte_ids = [int(x) for x in utterance.split()]
-        first_utt_id = utte_ids[0]
-        checked_once = True
-
-      response = read_line()
-      lines_read += 1
-      resp_ids = [int(x) for x in response.split()]
-
-      while response and resp_ids[0] != data_utils.IGNORE_ID and (not max_size or lines_read < max_size):
-        resp_ids.append(data_utils.EOS_ID)
-        if len(utte_ids) >= _input_lengths[0] or len(resp_ids) >= _input_lengths[1]:
-          contained_too_long_line = True
-
-        conversation.append([utte_ids, resp_ids])
-
-        utterance = response
+        lines_read += 1
+        if (not utterance) or utte_ids[0] == data_utils.IGNORE_ID:
+          break
         response = read_line()
         lines_read += 1
-        utte_ids = [int(x) for x in utterance.split()]
         resp_ids = [int(x) for x in response.split()]
+        if (not response) or resp_ids[0] == data_utils.IGNORE_ID:
+          break
+
+        # append EOS to response ids
+        resp_ids.append(data_utils.EOS_ID)
+
+        # cut of conversation if sentence is too long, and then read lines until next conversation.
+        if len(utte_ids) >= _input_lengths[0] or len(resp_ids) >= _input_lengths[1]:
+          found_divider = False
+          line_discard_counter += 1
+          while not found_divider:
+            line_discard_counter += 1
+            temp = [int(x) for x in read_line().split()]
+            if not temp:
+              end_of_file = True
+              break
+            found_divider = temp[0] == data_utils.IGNORE_ID
+          break
+
+        conversation.append([utte_ids, resp_ids])
       #END WHILE
+      end_of_file = not (response and utterance)
       if conversation != []: #Check that we even entered the while loop.
-        if not contained_too_long_line:
-          conversation_counter += 1
-          data_set.append(conversation)
-        else:
-          conversation_discard_counter += 1
-          line_discard_counter += len(conversation)
+        conversation_counter += 1
+        data_set.append(conversation)
     #END WHILE
-    print("Done reading data. Found conversations: %d, discarded conversations: %d, discarded lines: %d." 
-      % (conversation_counter, conversation_discard_counter, line_discard_counter))
+    print("Done reading data. Found conversations: %d, discarded lines: %d." 
+      % (conversation_counter, line_discard_counter))
     return data_set
 #END DEF
 
@@ -218,13 +211,6 @@ def create_model(session, forward_only, vocab, sample_output=False):
       punct_marks=punct_marks, mark_drop_rates=mark_drop_rates,
       sample_output=sample_output)
 
-  #ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
-  #if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
-  #  print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
-  #  model.saver.restore(session, ckpt.model_checkpoint_path)
-  #else:
-  #  print("Created model with fresh parameters.")
-  #  session.run(tf.initialize_all_variables())
   return model
 
 def init_model(session, model):
@@ -249,7 +235,7 @@ def train_step(model, data_set, last_state, session, forward_only, last_conversa
 
   current_conversations, same_conv, next_inputs = model.get_conversation_batch(data_set, last_conversations)
   utterance_lengths = []
-  response_lengths = []
+  response_lengths = [] #Excluding _GO symbol.
   for utt, resp in next_inputs:
     utterance_lengths.append(len(utt))
     response_lengths.append(len(resp))
@@ -266,8 +252,21 @@ def train_step(model, data_set, last_state, session, forward_only, last_conversa
   
   assert (len(new_state) == FLAGS.batch_size == len(response_lengths)) # TODO: remove assert
   assert (len(all_states) == _input_lengths[1])
+  """print("--------TAKING STEP!----------")
+  print("   input pair:")
+  print(encoder_inputs)
+  print(decoder_inputs)"""
   for b in xrange(len(new_state)):
+    """print("--- Batch %d" % b)
+    print(" Response length: %d" % response_lengths[b])
+    """
     new_state[b] = all_states[response_lengths[b] - 1][b] # i.e. if dec-inp is of length 2 (t_1, _EOS), we want the 2nd idx (i=1) state.
+    """print(" --First state--")
+    print(all_states[0][b])
+    print("   last state:")
+    print(last_state[b])
+    print("   new state:")
+    print(new_state[b])"""
 
   return current_conversations, new_state, step_loss
 
@@ -354,7 +353,6 @@ def train():
     last_state = sess.run(model.zero_state_f) # Only to generate states of correct sizes.
 
     print("COMMENCE TRAINING!!!!!!")
-
     # create checkpoint_path
     checkpoint_path = os.path.join(FLAGS.checkpoint_dir, "translate.ckpt")
     try:
@@ -369,29 +367,7 @@ def train():
         # Get a batch and make a step.
         start_time = time.time()#############
         current_conversations, last_state, step_loss = train_step(model, train_set, last_state, sess, False, last_conversations=current_conversations)
-        """
-        current_conversations, same_conv, next_inputs = model.get_conversation_batch(train_set, current_conversations)
-        utterance_lengths = []
-        response_lengths = []
-        for utt, resp in next_inputs:
-          utterance_lengths.append(len(utt))
-          response_lengths.append(len(resp))
 
-        # Set a state to 0s if it is a new conversation.
-        assert (len(same_conv) == len(last_state) == FLAGS.batch_size) # TODO: remove assert
-        for c in xrange(len(same_conv)):
-          last_state[c] = [same_conv[c]*s for s in last_state[c]]
-
-        encoder_inputs, decoder_inputs, target_weights = model.get_batch(
-            next_inputs, _input_lengths[0], _input_lengths[1], batched_data=True)
-        _, step_loss, _, new_state, all_states = model.step(sess, encoder_inputs, decoder_inputs,
-                                     target_weights, False, _input_lengths[0], _input_lengths[1], utterance_lengths, initial_state=last_state)
-        
-        assert (len(new_state) == FLAGS.batch_size == len(response_lengths)) # TODO: remove assert
-        for b in xrange(len(new_state)):
-          new_state[b] = all_states[response_lengths[b] - 1][b] # i.e. if dec-inp is of length 2 (t_1, _EOS), we want the 2nd idx (i=1) state.
-        last_state = new_state##################
-        """
         step_time += (time.time() - start_time)
         loss += step_loss #/ FLAGS.steps_per_checkpoint
         global_step = model.global_step.eval()
@@ -402,12 +378,13 @@ def train():
           step_time = step_time / current_step
 
           dev_eval_time = time.time()
-          current_evaluation_loss = eval_dev_set(3)
+          current_evaluation_loss = eval_dev_set(1)
           dev_eval_time = time.time() - dev_eval_time
           
           lowest_valid_error = model.best_validation_error.eval()
           # Save model and error if new best is found
           if(current_evaluation_loss < lowest_valid_error):
+            print("New lowest evaluation error found!")
             sess.run(model.best_validation_error.assign(current_evaluation_loss))
             model.saver.save(sess, checkpoint_path, global_step=model.global_step)
           

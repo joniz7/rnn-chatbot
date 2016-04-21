@@ -518,6 +518,7 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
     for a in attns:  # Ensure the second shape of attention vectors is set.
       a.set_shape([None, attn_size])
     if initial_state_attention:
+      raise ValueError("initial_state_attention must be set to False. Ask someone to add support for it.")
       attns = attention(initial_state)
     for i, inp in enumerate(decoder_inputs):
       if i > 0:
@@ -534,9 +535,9 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
       if i == 0 and initial_state_attention:
         with variable_scope.variable_scope(variable_scope.get_variable_scope(),
                                            reuse=True):
-          attns = attention(state)
+          attns = attention(cell_output)#attention(state)
       else:
-        attns = attention(state)
+        attns = attention(cell_output)#attention(state)
 
       with variable_scope.variable_scope("AttnOutputProjection"):
         output = rnn_cell.linear([cell_output] + attns, output_size, True)
@@ -707,6 +708,7 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
     # Decoder.
     output_size = None
     if output_projection is None:
+      raise ValueError("output_projection must be provided! OutputProjectionWrapper will not work with modified attention")
       cell = rnn_cell.OutputProjectionWrapper(cell, num_decoder_symbols)
       output_size = num_decoder_symbols
 
