@@ -34,8 +34,8 @@ Following flags can be set when run:
 """
 
 # Parameters
-vocab_size = 30000
-embedding_dimension = 50
+vocab_size = 90000
+embedding_dimension = 300
 data_path = "../data"
 batch_size = 64
 size = 1024

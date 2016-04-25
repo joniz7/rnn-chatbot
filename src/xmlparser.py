@@ -15,6 +15,8 @@ replace dots with _DOTS
 ["<", ">","/","\\", "=", "--"]
   """
 
+_NEWCONVO = "_NEWCONVO"
+
 def main():
   userinput = ""
 
@@ -321,6 +323,50 @@ def searchword(searchw, dir="en", beginfile=None):
           if searchs.strip() == searchw.strip():
             print "Word found in file: %s"%filename
 
+def splitfile(datafile, files):
+  openfiles = []
+  for (name, prob) in files:
+    openfiles.append((open(name, "w"),prob))
+
+  with open(datafile, "rb") as f:
+    currentfile = openfiles[0][0]
+    for line in f:
+      if line.strip() == _NEWCONVO:
+        currentfile.write(line)
+        currentfile = randomselectfile(openfiles)
+      else:
+        currentfile.write(line)
+
+
+def randomselectfile(files):
+  rand = random.random()
+  tot = 0
+  for (_, prob) in files:
+      tot = tot + prob
+
+  currprob = 0
+  for (file, prob) in files:
+    currprob = currprob + prob
+    if rand < currprob/tot:
+      return file
+
 if __name__ == "__main__":
-  main()
+  #main()
   #searchword("you 're just lucky all six of them are still alive .", beginfile="C:\\Exjobb\\parsing\\en\\1990\\25\\33296_1of2.xml")
+  #splitfile("../data/parsed25h10000.txt", [("train-data.data", 0.78), ("valid-data.data", 0.12), ("dev-data.data", 0.1)])
+
+  with open("train-data.ids90000.data", "rb") as f:
+    with open("train-data.ids90000.data.fix", "w") as fixf:
+      for i,line in enumerate(f):
+        if i%1000000 == 0:
+          print i
+        if line.strip():
+          fixf.write(line)
+
+  with open("valid-data.ids90000.data", "rb") as f:
+    with open("valid-data.ids90000.data.fix", "w") as fixf:
+      for i,line in enumerate(f):
+        if i%1000000 == 0:
+          print i
+        if line.strip():
+          fixf.write(line)
