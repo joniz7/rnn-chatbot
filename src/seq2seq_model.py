@@ -51,7 +51,7 @@ class Seq2SeqModel(object):
                num_layers, max_gradient_norm, batch_size, learning_rate,
                use_lstm=False, num_samples=512, forward_only=False, embedding_dimensions=50, 
                initial_accumulator_value=0.1, dropout_keep_prob=1.0,
-               punct_marks=[], mark_drop_rates=[], sample_output=False):
+               punct_marks=[], mark_drop_rates=[], noisify_output=False):
     """Create the model.
 
     Args:
@@ -124,7 +124,7 @@ class Seq2SeqModel(object):
     self.zero_state_f = cell.zero_state(batch_size, tf.float32)
 
     self.random_numbers = None
-    if sample_output:
+    if noisify_output:
       self.random_numbers = tf.placeholder(tf.float32, shape=[None, self.source_vocab_size], name="random_numbers")
     # The seq2seq function: we use embedding for the input and attention.
     def seq2seq_f(encoder_inputs, decoder_inputs, do_decode, initial_state, sequence_lengths):
@@ -132,7 +132,7 @@ class Seq2SeqModel(object):
           encoder_inputs, decoder_inputs, cell, source_vocab_size,
           target_vocab_size, output_projection=output_projection,
           feed_previous=do_decode, embedding_dimension=embedding_dimensions, 
-          sample_output=sample_output, random_numbers=self.random_numbers)
+          noisify_output=noisify_output, random_numbers=self.random_numbers, sequence_lengths=sequence_lengths)
 
     # Feeds for inputs.
     self.initial_state_ph = tf.placeholder(tf.float32, shape=[batch_size, cell.state_size], name="initial_state")
@@ -257,7 +257,7 @@ class Seq2SeqModel(object):
       output_feed = [self.losses, self.state]#, self.all_states]  # Loss for this batch.
       for l in xrange(decoder_size):  # Output logits.
         output_feed.append(self.outputs[l])
-      if random_numbers is not None:
+      if self.random_numbers is not None:
         input_feed[self.random_numbers.name] = random_numbers
 
     for s in self.all_states:

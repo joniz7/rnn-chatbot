@@ -555,7 +555,7 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
                                 output_size=None, output_projection=None,
                                 feed_previous=False, dtype=dtypes.float32,
                                 scope=None, initial_state_attention=False, 
-                                embedding_dimension=50, sample_output=False, random_numbers=None):
+                                embedding_dimension=50, noisify_output=False, random_numbers=None):
   """RNN decoder with embedding and attention and a pure-decoding option.
 
   Args:
@@ -615,8 +615,9 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
         prev = nn_ops.xw_plus_b(
             prev, output_projection[0], output_projection[1])
       # Sample output if flag is set.
-      if sample_output:
+      if noisify_output:
         prev_symbol = stochastic_output_sampling(prev, tf.slice(random_numbers, [index, 0], [1, -1]))
+        prev_symbol = tf.Print(prev_symbol, [index], "Index for loop function in seq2seq")
       else:
         prev_symbol = array_ops.stop_gradient(math_ops.argmax(prev, 1))
       emb_prev = embedding_ops.embedding_lookup(embedding, prev_symbol)
@@ -650,7 +651,7 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
                                 num_heads=1, output_projection=None,
                                 feed_previous=False, dtype=dtypes.float32,
                                 scope=None, initial_state_attention=False, 
-                                embedding_dimension=50, sample_output=False, 
+                                embedding_dimension=50, noisify_output=False, 
                                 random_numbers=None, initial_state=None, sequence_lengths=None):
   """Embedding sequence-to-sequence model with attention.
 
@@ -718,7 +719,7 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
           num_decoder_symbols, num_heads=num_heads, output_size=output_size,
           output_projection=output_projection, feed_previous=feed_previous,
           initial_state_attention=initial_state_attention, 
-          embedding_dimension=embedding_dimension, sample_output=sample_output, random_numbers=random_numbers)
+          embedding_dimension=embedding_dimension, noisify_output=noisify_output, random_numbers=random_numbers)
 
     # If feed_previous is a Tensor, we construct 2 graphs and use cond.
     def decoder(feed_previous_bool):
@@ -731,7 +732,7 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
             output_projection=output_projection,
             feed_previous=feed_previous_bool,
             initial_state_attention=initial_state_attention, 
-            embedding_dimension=embedding_dimension, sample_output=sample_output, random_numbers=random_numbers)
+            embedding_dimension=embedding_dimension, noisify_output=noisify_output, random_numbers=random_numbers)
         return outputs + [state] + [states]
 
     outputs_and_state = control_flow_ops.cond(feed_previous,
