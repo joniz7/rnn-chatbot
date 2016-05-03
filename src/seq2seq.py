@@ -618,7 +618,6 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
       # Sample output if flag is set.
       if noisify_output:
         prev_symbol = stochastic_output_sampling(prev, tf.slice(random_numbers, [index, 0], [1, -1]))
-        prev_symbol = tf.Print(prev_symbol, [index], "Index for loop function in seq2seq")
       else:
         prev_symbol = array_ops.stop_gradient(math_ops.argmax(prev, 1))
       emb_prev = embedding_ops.embedding_lookup(embedding, prev_symbol)

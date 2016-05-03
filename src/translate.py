@@ -497,14 +497,7 @@ def decode():
         encoder_inputs, decoder_inputs, target_weights = model.get_batch(
             [(token_ids, [])], _input_lengths[0], _input_lengths[1], batched_data=True)
 
-############################
         utterance_lengths = [len(token_ids)]
-        #response_lengths = [] #Excluding _GO symbol.
-
-        #for b in xrange(len(new_state)):
-        #  new_state[b] = all_states[response_lengths[b] - 1][b] # i.e. if dec-inp is of length 2 (t_1, _EOS), we want the 2nd idx (i=1) state.
-
-############################
 
         #### Start while no response ####
         generate_new = True
@@ -518,8 +511,8 @@ def decode():
                                      target_weights, True, _input_lengths[0], _input_lengths[1], 
                                      utterance_lengths, initial_state=prev_state, random_numbers=random_numbers)
 
-          assert(len(output_logits) == model.batch_size)
-          assert(len(output_logits[0]) == _input_lengths[1])
+          assert(len(output_logits[0]) == model.batch_size)
+          assert(len(output_logits) == _input_lengths[1])
           # Throw away first random number and last logit in output_logits.
           # (since the first random number is not used due to _GO symbol)
           output_logits = output_logits[:-1]
@@ -539,9 +532,11 @@ def decode():
         #### End while no response ####
 
         # If there is an EOS symbol in outputs, cut them and the generated states at that point.
+        print("len of outputs: %d, len of new_states: %d" % (len(outputs), len(all_states)))
         if data_utils.EOS_ID in outputs:
-          outputs = outputs[:outputs.index(data_utils.EOS_ID)]
-          new_state = all_states[7] # TODO FIX INDEX
+          EOS_index = outputs.index(data_utils.EOS_ID)
+          outputs = outputs[:EOS_index]
+          new_state = all_states[EOS_index]
         # Print out response sentence corresponding to outputs.
         if FLAGS.prettify_decoding:
           # Join in a neat fashion if flag is set.

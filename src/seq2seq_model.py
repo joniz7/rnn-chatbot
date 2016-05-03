@@ -157,7 +157,7 @@ class Seq2SeqModel(object):
     if forward_only:
       self.outputs, self.state, self.all_states = seq2seq_f(self.encoder_inputs[:input_lengths[0]], self.decoder_inputs[:input_lengths[1]], True, 
                                         self.initial_state_ph, self.sequence_lengths_ph)
-      
+      outputs_for_losses = self.outputs
       # If we use output projection, we need to project outputs for decoding.
       if output_projection is not None:
         self.outputs = [
@@ -167,8 +167,9 @@ class Seq2SeqModel(object):
     else:
       self.outputs, self.state, self.all_states = seq2seq_f(self.encoder_inputs[:input_lengths[0]], self.decoder_inputs[:input_lengths[1]], False,
                                         self.initial_state_ph, self.sequence_lengths_ph)
+      outputs_for_losses = self.outputs
 
-    self.losses = seq2seq.sequence_loss(self.outputs, targets[:input_lengths[1]], self.target_weights[:input_lengths[1]],
+    self.losses = seq2seq.sequence_loss(outputs_for_losses, targets[:input_lengths[1]], self.target_weights[:input_lengths[1]],
               softmax_loss_function=softmax_loss_function)
 
     # Gradients and SGD update operation for training the model.
