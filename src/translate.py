@@ -532,7 +532,6 @@ def decode():
         #### End while no response ####
 
         # If there is an EOS symbol in outputs, cut them and the generated states at that point.
-        print("len of outputs: %d, len of new_states: %d" % (len(outputs), len(all_states)))
         if data_utils.EOS_ID in outputs:
           EOS_index = outputs.index(data_utils.EOS_ID)
           outputs = outputs[:EOS_index]
