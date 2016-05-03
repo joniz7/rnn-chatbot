@@ -68,7 +68,8 @@ from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.ops import embedding_ops
 from tensorflow.python.ops import math_ops
 from tensorflow.python.ops import nn_ops
-from tensorflow.python.ops import rnn
+#from tensorflow.python.ops import rnn
+import rnn
 from tensorflow.python.ops import rnn_cell
 from tensorflow.python.ops import variable_scope
 import tensorflow as tf
@@ -700,7 +701,7 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
     encoder_cell = rnn_cell.EmbeddingWrapper(cell, embedding=our_embedding)
     encoder_outputs, encoder_state = rnn.rnn(
         encoder_cell, encoder_inputs, initial_state=initial_state, dtype=dtype, sequence_length=sequence_lengths)
-
+    
     # First calculate a concatenation of encoder outputs to put attention on.
     top_states = [array_ops.reshape(e, [-1, 1, cell.output_size])
                   for e in encoder_outputs]
