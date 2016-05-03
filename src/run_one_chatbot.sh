@@ -7,7 +7,8 @@ if [[ $(ls | wc -l) -gt 3 ]]
 		ls -t | sed -e '1,3d' | xargs -d '\n' rm
 fi
 
-cd ../../src
+cd ../..
 
 shift
-#$*
+echo $*
+$*
