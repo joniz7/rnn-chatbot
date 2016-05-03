@@ -189,7 +189,7 @@ def read_data(source_path, max_size=None):
 #END DEF
 
 
-def create_model(session, forward_only, vocab, sample_output=False):
+def create_model(session, forward_only, vocab, noisify_output=False):
   """Create translation model and initialize or load parameters in session."""
 
   with tf.variable_scope("embedding_attention_seq2seq/embedding"):
@@ -200,16 +200,19 @@ def create_model(session, forward_only, vocab, sample_output=False):
   punct_marks = data_utils.sentence_to_token_ids(".?!,_DOTS", vocab)
   # list of drop rates with the same ordering as above
   mark_drop_rates = [FLAGS.period_drop_rate, FLAGS.quest_drop_rate, FLAGS.excl_drop_rate, FLAGS.comma_drop_date, FLAGS.dots_drop_rate]
-
+  # Set different batch sizes depending on decoding mode or not.
+  batch_size = FLAGS.batch_size
+  if(FLAGS.decode == True):
+    batch_size = 1
   model = seq2seq_model.Seq2SeqModel(
       FLAGS.vocab_size, FLAGS.vocab_size, _input_lengths,
-      FLAGS.size, FLAGS.num_layers, FLAGS.max_gradient_norm, FLAGS.batch_size,
+      FLAGS.size, FLAGS.num_layers, FLAGS.max_gradient_norm, batch_size,
       FLAGS.learning_rate, use_lstm=True, num_samples=FLAGS.num_samples, 
       forward_only=forward_only, embedding_dimensions=FLAGS.embedding_dimensions,
       initial_accumulator_value=FLAGS.initial_accumulator_value, 
       dropout_keep_prob=FLAGS.dropout_keep_prob,
       punct_marks=punct_marks, mark_drop_rates=mark_drop_rates,
-      sample_output=sample_output)
+      noisify_output=noisify_output)
 
   return model
 
@@ -443,9 +446,14 @@ def decode():
     #_buckets = [(150, 150)]
 
     # Create model and load parameters.
-    model = create_model(sess, True, vocab, sample_output=True)
+    noisify_output = FLAGS.decode_randomness != 0.0
+    print("Noisify output: %r" % noisify_output)
+
+    model = create_model(sess, True, vocab, noisify_output=noisify_output)
     model = init_model(sess, model)
     
+    prev_state = sess.run(model.zero_state_f)
+
     model.batch_size = 1  # We decode one sentence at a time.
 
     def get_random_numbers(rand_level):
@@ -482,45 +490,59 @@ def decode():
         if not token_ids[-1] in ([data_utils.UNK_ID, vocab["_DOTS"]] + [vocab[pm] for pm in parser.punctuationMarks]):
           token_ids.append(data_utils.UNK_ID)
 
-      if len(token_ids) >= _buckets[-1][0]:
+      if len(token_ids) >= _input_lengths[0]:
         print("tldr pls")
       else:
-        # Which bucket does it belong to?
-        bucket_id = min([b for b in xrange(len(_buckets))
-                         if _buckets[b][0] > len(token_ids)])
-
         # Get a 1-element batch to feed the sentence to the model.
         encoder_inputs, decoder_inputs, target_weights = model.get_batch(
-            [(token_ids, [])], _input_lengths[0], _input_lengths[1])
+            [(token_ids, [])], _input_lengths[0], _input_lengths[1], batched_data=True)
+
+############################
+        utterance_lengths = [len(token_ids)]
+        #response_lengths = [] #Excluding _GO symbol.
+
+        #for b in xrange(len(new_state)):
+        #  new_state[b] = all_states[response_lengths[b] - 1][b] # i.e. if dec-inp is of length 2 (t_1, _EOS), we want the 2nd idx (i=1) state.
+
+############################
 
         #### Start while no response ####
         generate_new = True
+        new_state = None
         randomness = FLAGS.decode_randomness
         while(generate_new):
           generate_new = False
           random_numbers = get_random_numbers(randomness)
           # Get output logits for the sentence.
-          _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
-                                           target_weights, bucket_id, True, random_numbers=random_numbers)
-          # This is a greedy decoder - outputs are just argmaxes of output_logits.
-          #outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
+          _, _, output_logits, new_state, all_states = model.step(sess, encoder_inputs, decoder_inputs,
+                                     target_weights, True, _input_lengths[0], _input_lengths[1], 
+                                     utterance_lengths, initial_state=prev_state, random_numbers=random_numbers)
 
-          # Throw away first random number and last logit in output_logits
+          assert(len(output_logits) == model.batch_size)
+          assert(len(output_logits[0]) == _input_lengths[1])
+          # Throw away first random number and last logit in output_logits.
+          # (since the first random number is not used due to _GO symbol)
           output_logits = output_logits[:-1]
           random_numbers = random_numbers[1:]
-          outputs = [sample_output(output_logits[l], random_numbers[l]) for l in xrange(len(output_logits))]
+          if(not noisify_output):
+            # This is a greedy decoder - outputs are just argmaxes of output_logits.
+            outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
+          else:
+            # The outputs are first noised then argmaxed.
+            outputs = [sample_output(output_logits[l], random_numbers[l]) for l in xrange(len(output_logits))]
 
           # Generate new response if prettifying and no response is given.
           # Do not generate new respone if response generation is deterministic.
-          if(FLAGS.prettify_decoding and (not FLAGS.decode_randomness == 0.0) and outputs[0] == data_utils.EOS_ID):
+          if(FLAGS.prettify_decoding and noisify_output and outputs[0] == data_utils.EOS_ID):
             generate_new = True
             randomness *= 1.1 # Increase randomness a little bit so we won't get stuck in an infinite loop.
         #### End while no response ####
 
-        # If there is an EOS symbol in outputs, cut them at that point.
+        # If there is an EOS symbol in outputs, cut them and the generated states at that point.
         if data_utils.EOS_ID in outputs:
           outputs = outputs[:outputs.index(data_utils.EOS_ID)]
-        # Print out French sentence corresponding to outputs.
+          new_state = all_states[7] # TODO FIX INDEX
+        # Print out response sentence corresponding to outputs.
         if FLAGS.prettify_decoding:
           # Join in a neat fashion if flag is set.
           s = ""
@@ -534,9 +556,13 @@ def decode():
           print(s)
         else:
           print(" ".join([rev_vocab[output] for output in outputs]))
+
+        prev_state = new_state
+      # END ELSE
       print("> ", end="")
       sys.stdout.flush()
       sentence = sys.stdin.readline()
+    # END WHILE
 
 def sample_output(logit, rand, replace_UNK=True):
   logit = logit[0][:]
