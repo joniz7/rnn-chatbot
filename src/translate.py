@@ -341,7 +341,7 @@ def train():
     smoothed_evaluation_losses_summary = tf.scalar_summary("smoothed_evaluation_losses_summary", model.smoothed_eval_error)
     best_validation_error_summary = tf.scalar_summary("best_validation_error", model.best_validation_error)
     merged = tf.merge_all_summaries()
-    writer = tf.train.SummaryWriter(FLAGS.summary_path, sess.graph)
+    writer = tf.train.SummaryWriter(FLAGS.summary_path, sess.graph_def)
 
     print("Initializing model...")
 
