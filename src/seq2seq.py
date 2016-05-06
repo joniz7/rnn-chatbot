@@ -697,7 +697,7 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
     # Encoder.
     with variable_scope.variable_scope("embedding", reuse=True):
       our_embedding = variable_scope.get_variable("embedding", [num_encoder_symbols, embedding_dimension]) #######
-    encoder_cell = rnn_cell.EmbeddingWrapper(cell, embedding=our_embedding)
+    encoder_cell = rnn_cell.EmbeddingWrapper(cell, num_encoder_symbols, embedding_dimension)
     encoder_outputs, encoder_state = rnn.rnn(
         encoder_cell, encoder_inputs, initial_state=initial_state, dtype=dtype, sequence_length=sequence_lengths)
     
