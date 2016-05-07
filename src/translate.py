@@ -101,19 +101,19 @@ FLAGS = tf.app.flags.FLAGS
 _input_lengths = (25, 25)
 
 
-def inject_embeddings(source_path):
-  """Read embeddings from source and replace the current embeddings with this.
+#def inject_embeddings(source_path):
+"""Read embeddings from source and replace the current embeddings with this.
 
   Args:
     source_path : path to the file with the embeddings"""
 
-  print("Load embedding from %s"%source_path)
+"""  print("Load embedding from %s"%source_path)
   with tf.variable_scope("embedding_attention_seq2seq/embedding", reuse=True):
     with tf.Session() as sess:
       with ops.device("/cpu:0"):
         embedding = tf.get_variable("embedding")
         sess.run(embedding.assign(parseEmbeddings(source_path)))
-
+"""
 
 def read_data(source_path, max_size=None):
   """Read data from source and target files and put into buckets.
@@ -192,9 +192,9 @@ def read_data(source_path, max_size=None):
 def create_model(session, forward_only, vocab, noisify_output=False):
   """Create translation model and initialize or load parameters in session."""
 
-  with tf.variable_scope("embedding_attention_seq2seq/embedding"):
-    with ops.device("/cpu:0"):
-      tf.get_variable("embedding", [FLAGS.vocab_size, FLAGS.embedding_dimensions])
+  #with tf.variable_scope("embedding_attention_seq2seq/embedding"):
+  #  with ops.device("/cpu:0"):
+  #    tf.get_variable("embedding", [FLAGS.vocab_size, FLAGS.embedding_dimensions])
 
   # what characters to randomly drop
   punct_marks = data_utils.sentence_to_token_ids(".?!,_DOTS", vocab)
@@ -227,7 +227,7 @@ def init_model(session, model):
     print("Created model with fresh parameters.")
     session.run(tf.initialize_all_variables())
 
-    with tf.variable_scope("embedding_attention_seq2seq/embedding", reuse=True): #Inject the embeddings
+    with tf.variable_scope("embedding_attention_seq2seq/RNN/EmbeddingWrapper", reuse=True): #Inject the embeddings
       with ops.device("/cpu:0"):
         embedding = tf.get_variable("embedding")
         session.run(embedding.assign(parseEmbeddings(FLAGS.embedding_path)))
@@ -347,6 +347,12 @@ def train():
 
     model = init_model(sess, model)
 
+    # Use for checking embedding variables.
+    """variables = tf.trainable_variables()
+    for v in variables:
+      if "embedding:0" in v.name:
+        print(v.name)"""
+
     print("Model initialized!")
 
     # This is the training loop.
@@ -360,7 +366,7 @@ def train():
     checkpoint_path = os.path.join(FLAGS.checkpoint_dir, "translate.ckpt")
     try:
       while ((time.time() - training_start_time)/60 < FLAGS.max_running_time ):
-        """with tf.variable_scope("embedding_attention_seq2seq/embedding"):
+        """with tf.variable_scope("embedding_attention_seq2seq/RNN/EmbeddingWrapper", reuse=True):
           embedding = sess.run(tf.get_variable("embedding"))
           temp = embedding_ops.embedding_lookup(embedding, [6])
           print(embedding[6])

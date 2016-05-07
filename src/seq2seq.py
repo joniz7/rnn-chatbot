@@ -604,7 +604,7 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
     proj_biases = ops.convert_to_tensor(output_projection[1], dtype=dtype)
     proj_biases.get_shape().assert_is_compatible_with([num_symbols])
 
-  with variable_scope.variable_scope("embedding", reuse=True):
+  with variable_scope.variable_scope("RNN/EmbeddingWrapper", reuse=True):
     with ops.device("/cpu:0"):
       embedding = variable_scope.get_variable("embedding",
                                                 [num_symbols, embedding_dimension])
@@ -695,8 +695,8 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
   """
   with variable_scope.variable_scope(scope or "embedding_attention_seq2seq"):
     # Encoder.
-    with variable_scope.variable_scope("embedding", reuse=True):
-      our_embedding = variable_scope.get_variable("embedding", [num_encoder_symbols, embedding_dimension]) #######
+    #with variable_scope.variable_scope("RNN/EmbeddingWrapper", reuse=True):
+    #  our_embedding = variable_scope.get_variable("embedding", [num_encoder_symbols, embedding_dimension]) #######
     encoder_cell = rnn_cell.EmbeddingWrapper(cell, num_encoder_symbols, embedding_dimension)
     encoder_outputs, encoder_state = rnn.rnn(
         encoder_cell, encoder_inputs, initial_state=initial_state, dtype=dtype, sequence_length=sequence_lengths)
