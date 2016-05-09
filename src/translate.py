@@ -64,6 +64,8 @@ tf.app.flags.DEFINE_float("max_gradient_norm", 5.0,
                           "Clip gradients to this norm.")
 tf.app.flags.DEFINE_integer("batch_size", 64,
                             "Batch size to use during training.")
+tf.app.flags.DEFINE_integer("eval_conversation_length", 10, "The number of lines in a conversation that will be evaluated for the dev set.")
+tf.app.flags.DEFINE_boolean("save_states", True, "To save the states between inputs/outputs")
 tf.app.flags.DEFINE_integer("embedding_dimensions", 50, "Dimension of the embedding vectors")
 tf.app.flags.DEFINE_integer("size", 1024, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("num_layers", 3, "Number of layers in the model.")
@@ -270,6 +272,8 @@ def train_step(model, data_set, last_state, session, forward_only, last_conversa
     print(last_state[b])
     print("   new state:")
     print(new_state[b])"""
+  if(not FLAGS.save_states):
+    new_state = session.run(model.zero_state_f)
 
   return current_conversations, new_state, step_loss
 
@@ -387,7 +391,7 @@ def train():
           step_time = step_time / current_step
 
           dev_eval_time = time.time()
-          current_evaluation_loss = eval_dev_set(1)
+          current_evaluation_loss = eval_dev_set(FLAGS.eval_conversation_length)
           dev_eval_time = time.time() - dev_eval_time
           
           lowest_valid_error = model.best_validation_error.eval()
@@ -556,8 +560,8 @@ def decode():
           print(s)
         else:
           print(" ".join([rev_vocab[output] for output in outputs]))
-
-        prev_state = new_state
+        if(FLAGS.save_states):
+          prev_state = new_state
       # END ELSE
       print("> ", end="")
       sys.stdout.flush()
