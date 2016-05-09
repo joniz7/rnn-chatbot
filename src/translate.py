@@ -54,6 +54,7 @@ import data_utils
 import seq2seq_model
 import parser
 
+#os.chdir("src")
 
 execfile("parser.py")
 
@@ -83,15 +84,16 @@ tf.app.flags.DEFINE_string("summary_path", "../data/summaries",
                             "Directory for summaries")
 tf.app.flags.DEFINE_boolean("decode", False,
                             "Set to True for interactive decoding.")
+tf.app.flags.DEFINE_boolean("use_lstm", True, "True if LSTM, false if GRU")
 tf.app.flags.DEFINE_boolean("self_test", False,
                             "Run a self-test if this is set to True.")
 tf.app.flags.DEFINE_string("embedding_path", "../data/embeddings%d.txt"%tf.app.flags.FLAGS.vocab_size, "The path for the file with initial embeddings")
 tf.app.flags.DEFINE_float("max_running_time", 60, "The training will terminate after at most this many minutes.")
-tf.app.flags.DEFINE_float("quest_drop_rate", 0, "The rate at which question marks will be dropped. Number between 0 and 1.")
-tf.app.flags.DEFINE_float("excl_drop_rate", 0, "The rate at which exclamation markswill be dropped. Number between 0 and 1.")
-tf.app.flags.DEFINE_float("period_drop_rate", 0, "The rate at which periods will be dropped. Number between 0 and 1.")
-tf.app.flags.DEFINE_float("comma_drop_date", 0, "The rate at which commas will be dropped. Number between 0 and 1.")
-tf.app.flags.DEFINE_float("dots_drop_rate", 0, "The rate at which the _DOTS tag will be dropped. Number between 0 and 1.")
+tf.app.flags.DEFINE_float("quest_drop_rate", 0.4, "The rate at which question marks will be dropped. Number between 0 and 1.")
+tf.app.flags.DEFINE_float("excl_drop_rate", 0.4, "The rate at which exclamation markswill be dropped. Number between 0 and 1.")
+tf.app.flags.DEFINE_float("period_drop_rate", 0.4, "The rate at which periods will be dropped. Number between 0 and 1.")
+tf.app.flags.DEFINE_float("comma_drop_date", 0.4, "The rate at which commas will be dropped. Number between 0 and 1.")
+tf.app.flags.DEFINE_float("dots_drop_rate", 0.4, "The rate at which the _DOTS tag will be dropped. Number between 0 and 1.")
 tf.app.flags.DEFINE_float("dropout_keep_prob", 0.5, "The probability that dropout is NOT applied to a node.")
 tf.app.flags.DEFINE_float("decode_randomness", 0.0, "Factor determining the randomness when producing the output. Should be a float in [0, 1]")
 tf.app.flags.DEFINE_boolean("prettify_decoding", True, "If set, corrects spelling, randomizes numbers, generates a new output if output starts with _EOS and adds _UNK to to end of input")
@@ -207,7 +209,7 @@ def create_model(session, forward_only, vocab, noisify_output=False):
   model = seq2seq_model.Seq2SeqModel(
       FLAGS.vocab_size, FLAGS.vocab_size, _input_lengths,
       FLAGS.size, FLAGS.num_layers, FLAGS.max_gradient_norm, batch_size,
-      FLAGS.learning_rate, use_lstm=True, num_samples=FLAGS.num_samples, 
+      FLAGS.learning_rate, use_lstm=FLAGS.use_lstm, num_samples=FLAGS.num_samples, 
       forward_only=forward_only, embedding_dimensions=FLAGS.embedding_dimensions,
       initial_accumulator_value=FLAGS.initial_accumulator_value, 
       dropout_keep_prob=FLAGS.dropout_keep_prob,
