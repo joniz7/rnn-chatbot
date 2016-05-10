@@ -80,7 +80,7 @@ tf.app.flags.DEFINE_integer("max_train_data_size", 0,
                             "Limit on the size of training data (0: no limit).")
 tf.app.flags.DEFINE_integer("max_valid_data_size", 0,
                             "Limit on the size of validation data (0: no limit).")
-tf.app.flags.DEFINE_integer("steps_per_checkpoint", 50,
+tf.app.flags.DEFINE_integer("steps_per_checkpoint", 100,
                             "How many training steps to do per checkpoint.")
 tf.app.flags.DEFINE_string("summary_path", "../data/summaries",
                             "Directory for summaries")
@@ -401,7 +401,8 @@ def train():
           if(current_evaluation_loss < lowest_valid_error):
             print("New lowest evaluation error found!")
             sess.run(model.best_validation_error.assign(current_evaluation_loss))
-            model.saver.save(sess, checkpoint_path, global_step=model.global_step)
+            
+          model.saver.save(sess, checkpoint_path, global_step=model.global_step)
           
           # Calculate new smoothed data points. Biased towards the latest data by smooth_ratio.
           def smooth_data(old_data, new_data):
