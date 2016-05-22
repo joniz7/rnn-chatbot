@@ -9,9 +9,8 @@ var bodyParser  = require('body-parser');
 var chatbots = {};
 
 process.chdir("src");
-chatbots["cleverbot"] = new PythonShell("clever.py", {pythonOptions:["-u"]});
-chatbots["alice"]     = new PythonShell("alice.py", {pythonOptions: ["-u"]});
-chatbots["arenen"]    = new PythonShell("translate.py", {pythonOptions: ["-u"], args:["--size=2550","--num_samples=2048","--embedding_dimensions=300","--batch_size=1","--decode_randomness=0.3", "--vocab_size=100000", "--num_layers=2", "--decode=True"]});
+chatbots["statesave"]    = new PythonShell("translate.py", {pythonOptions: ["-u"], args:["--size=1700","--save_states=True","--use_lstm=True","--embedding_dimensions=300","--batch_size=1","--decode_randomness=0.3", "--vocab_size=90000", "--num_layers=2", "--decode=True", '--checkpoint_dir="../checkpoints/1"']});
+chatbots["standard"]    = new PythonShell("translate.py", {pythonOptions: ["-u"], args:["--size=1700","--save_states=False","--use_lstm=True","--embedding_dimensions=300","--batch_size=1","--decode_randomness=0.3", "--vocab_size=90000", "--num_layers=2", "--decode=True", '--checkpoint_dir="../checkpoints/2"']});
 var app = express();
 
 app.use(bodyParser.urlencoded({extended: false})); 

@@ -34,13 +34,17 @@ Following flags can be set when run:
 """
 
 # Parameters
-vocab_size = 30000
-embedding_dimension = 50
+vocab_size = 90000
+embedding_dimension = 300
 data_path = "../data"
 batch_size = 64
 size = 1024
 num_layers = 3
 decode = False
+split_sentence = False
+max_running_time=40 
+max_patience=12000
+patience_sensitivity=0.5
 
 for arg in sys.argv[1:]:
   arg = arg.split("=")
@@ -69,6 +73,18 @@ for arg in sys.argv[1:]:
     elif(arg[0][2:] == "decode"):
       print "decode "+arg[1]
       decode = bool(arg[1])
+    elif(arg[0][2:] == "split_sentence"):
+      print "split_Sentence "+arg[1]
+      split_sentence = bool(arg[1])
+    elif(arg[0][2:] == "max_running_time"):
+      print "max_running_time "+arg[1]
+      max_running_time=int(arg[1])
+    elif(arg[0][2:] == "max_patience"):
+      print "max_patience "+arg[1]
+      max_patience = int(arg[1])
+    elif(arg[0][2:] == "patience_sensitivity"):
+      print "patience_sensitivity "+arg[1]
+      patience_sensitivity = float(arg[1])
     else:
       print "Bad format on flag %s"%arg[0]
       sys.exit()
@@ -86,13 +102,13 @@ test_data_percentage = 14
 print "Running main with parameters:"
 print "vocab_size: %d\nembedding_dimension: %d\nembeddings_filename: %s\ndata_path: %s\ndecode: %s"%(vocab_size, embedding_dimension, embeddings_filename, data_path, str(decode))
 
-trainingFiles = [data_path+"/train-data.utte", data_path+"/train-data.resp", data_path+"/valid-data.utte", data_path+"/valid-data.resp"]
-
+#trainingFiles = [data_path+"/train-data.utte", data_path+"/train-data.resp", data_path+"/valid-data.utte", data_path+"/valid-data.resp"]
+trainingFiles = [data_path+"/train-data.data", data_path+"/valid-data.data"]
 print "========== Checking if training and validation data exists =========="
 if(reduce(operator.and_, map(os.path.isfile, trainingFiles))):
   print "Exists, moving on"
 else:
-  sys.argv = ["browse.py", train_data_percentage, valid_data_percentage, test_data_percentage]
+  sys.argv = ["browse.py", train_data_percentage, valid_data_percentage, test_data_percentage, False, split_sentence]
   execfile("browse.py")
 
 vocabFiles = [data_path+"/vocab"+str(vocab_size), data_path+"/vocab"+str(vocab_size)+".utte"]

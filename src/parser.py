@@ -87,7 +87,10 @@ def removeStars(line):
 def purgeLine(line):
 	return removeStars(re.sub("\(.*?\)", "", line.replace("\n", " ").lower())).replace("*", "")
 
-def parseFile(filename):
+def isPunct(c):
+	return c == "." or c == "?" or c =="!"
+
+def parseFile(filename, splitSentence=False):
 	txt = open(filename)
 	#targetFile = open("data", "w")
 	#targetFile.truncate()
@@ -98,24 +101,41 @@ def parseFile(filename):
 
 	totalLine = ""
 
-	for line in txt:
-		if not line == "\n":
-			if not containsAny(line, ["<", ">","/","\\", "=", "--"]) and isCorrect(line):
-				line = re.sub("\(.*?\)", "", line.replace("\n", ""))
-				if allCaps(line.replace(" ", "")) and totalLine:
-					#print "%s     %d"%(line, len(line.strip()))
-					#wordSplit = splitSentence(totalLine)
-					#words.append((oldLine, wordSplit))
-					lines.append(purgeLine(totalLine))
-					totalLine = ""
-				elif allCaps(line.replace(" ", "")):
-					#print " elif %s     %d"%(line, len(line.strip()))
-					totalLine = ""
-				else:
-					#print " else %s     %d"%(line, len(line.strip()))
-					totalLine += " "+line
-	if totalLine:
-		lines.append(purgeLine(totalLine))
+	if not splitSentence:
+		for line in txt:
+			if not line == "\n":
+				if not containsAny(line, ["<", ">","/","\\", "=", "--"]) and isCorrect(line):
+					line = re.sub("\(.*?\)", "", line.replace("\n", ""))
+					if allCaps(line.replace(" ", "")) and totalLine:
+						#print "%s     %d"%(line, len(line.strip()))
+						#wordSplit = splitSentence(totalLine)
+						#words.append((oldLine, wordSplit))
+						lines.append(purgeLine(totalLine))
+						totalLine = ""
+					elif allCaps(line.replace(" ", "")):
+						#print " elif %s     %d"%(line, len(line.strip()))
+						totalLine = ""
+					else:
+						#print " else %s     %d"%(line, len(line.strip()))
+						totalLine += " "+line
+		if totalLine:
+			lines.append(purgeLine(totalLine))
+	else:
+		for line in txt:
+			if not line == "\n":
+				if not containsAny(line, ["<", ">","/","\\", "=", "--"]) and isCorrect(line):
+					if not allCaps(line.replace(" ", "")):
+						for word in line.split():
+							if isPunct(word[-1]):
+								totalLine += " "+word
+								lines.append(purgeLine(totalLine))
+								totalLine = ""
+							else:
+								totalLine += " "+word
+					elif totalLine:
+						lines.append(purgeLine(totalLine))
+						totalLine = ""
+
 	return lines
 
 def parseEmbeddings(filename):

@@ -11,19 +11,23 @@ import re
 from tensorflow.python.platform import gfile
 from six.moves import urllib
 
-from autocorrect import spell
+#from autocorrect import spell
 
 # Special vocabulary symbols - we always put them at the start.
 _PAD = "_PAD"
 _GO = "_GO"
 _EOS = "_EOS"
 _UNK = "_UNK"
-_START_VOCAB = [_PAD, _GO, _EOS, _UNK]
+_DOTS = "_DOTS"
+_IGNORE = "_NEWCONVO"
+_START_VOCAB = [_PAD, _GO, _EOS, _UNK, _DOTS, _IGNORE]
 
 PAD_ID = 0
 GO_ID = 1
 EOS_ID = 2
 UNK_ID = 3
+DOTS_ID = 4
+IGNORE_ID = 5
 
 # Regular expressions used to tokenize.
 _WORD_SPLIT = re.compile("([.,!?\":;)(])")
@@ -69,10 +73,11 @@ def create_vocabulary(vocabulary_path, data_path, max_vocabulary_size,
                 tokens = tokenizer(line) if tokenizer else basic_tokenizer(line)
                 for w in tokens:
                     word = re.sub(_DIGIT_RE, "0", w) if normalize_digits else w
-                    if word in vocab:
-                        vocab[word] += 1
-                    else:
-                        vocab[word] = 1
+                    if word.strip() != _IGNORE:
+                        if word in vocab:
+                            vocab[word] += 1
+                        else:
+                            vocab[word] = 1
             vocab_list = _START_VOCAB + sorted(vocab, key=vocab.get, reverse=True)
             if len(vocab_list) > max_vocabulary_size:
                 vocab_list = vocab_list[:max_vocabulary_size]
@@ -128,10 +133,10 @@ def sentence_to_token_ids(sentence, vocabulary,
     Returns:
       a list of integers, the token-ids for the sentence.
     """
-    def spell_and_replace(word):
-        if vocabulary.has_key(word):
-            return word
-        return spell(word)
+#    def spell_and_replace(word):
+#        if vocabulary.has_key(word):
+#            return word
+#        return spell(word)
 
     if tokenizer:
         words = tokenizer(sentence)
@@ -141,8 +146,8 @@ def sentence_to_token_ids(sentence, vocabulary,
     if normalize_digits:
         words = [re.sub(_DIGIT_RE, "0", w) for w in words]
 
-    if correct_spelling:
-        words = [spell_and_replace(w) for w in words]
+#    if correct_spelling:
+#        words = [spell_and_replace(w) for w in words]
 
     return [vocabulary.get(w, UNK_ID) for w in words]
 
@@ -182,7 +187,7 @@ def data_to_token_ids(data_path, target_path, vocabulary_path,
                                 normalize_digits)
                     tokens_file.write(" ".join([str(tok) for tok in token_ids]) + "\n")
 
-def prepare_dialogue_data(data_dir, vocabulary_size):
+def prepare_dialogue_data(data_dir, vocabulary_size, part=None):
     """Load dialogue data from data_dir, create vocabularies and tokenize data.
 
     Args:
@@ -205,23 +210,20 @@ def prepare_dialogue_data(data_dir, vocabulary_size):
     train_path, valid_path = check_dialogue_sets(data_dir)
     #  Create vocabularies of the appropriate sizes.
     vocab_path = os.path.join(data_dir, "vocab%d" % vocabulary_size)
-    create_vocabulary(vocab_path, train_path+".resp", vocabulary_size)
+    create_vocabulary(vocab_path, train_path+".data", vocabulary_size)
 
     # Create token ids for the training data.
-    resp_train_ids_path = train_path + (".ids%d.resp" % vocabulary_size)
-    utte_train_ids_path = train_path + (".ids%d.utte" % vocabulary_size)
-    data_to_token_ids(train_path + ".resp", resp_train_ids_path, vocab_path)
-    data_to_token_ids(train_path + ".utte", utte_train_ids_path, vocab_path)
+    train_ids_path = train_path + (".ids%d.data" % vocabulary_size)
+    data_to_token_ids(train_path + ".data", train_ids_path, vocab_path)
+
+    if part:
+        train_ids_path = train_ids_path + "-dir/part%d"%part
 
     # Create token ids for the development data.
-    resp_valid_ids_path = valid_path + (".ids%d.resp" % vocabulary_size)
-    utte_valid_ids_path = valid_path + (".ids%d.utte" % vocabulary_size)
-    data_to_token_ids(valid_path + ".resp", resp_valid_ids_path, vocab_path)
-    data_to_token_ids(valid_path + ".utte", utte_valid_ids_path, vocab_path)
+    valid_ids_path = valid_path + (".ids%d.data" % vocabulary_size)
+    data_to_token_ids(valid_path + ".data", valid_ids_path, vocab_path)
 
-    return (utte_train_ids_path, resp_train_ids_path, 
-            utte_valid_ids_path, resp_valid_ids_path,
-            vocab_path)
+    return (train_ids_path, valid_ids_path, vocab_path)
 
 
 def check_dialogue_sets(directory):
@@ -239,24 +241,13 @@ def check_dialogue_sets(directory):
     """
     train_name = "train-data"
     valid_name = "valid-data"
-    utterances_suffix = ".utte"
-    responses_suffix = ".resp"
+    suffix = ".data"
     train_path = os.path.join(directory, train_name)
     valid_path = os.path.join(directory, valid_name)
 
-    if not os.path.isfile(train_path + utterances_suffix):
-        print("file not exist :( %s"%(train_path + utterances_suffix))
-        raise ValueError("Training file %s not found.", train_path + utterances_suffix)
-    #if not (gfile.Exists(train_path + utterances_suffix)):
-        
-    if not (gfile.Exists(train_path + responses_suffix)):
-        raise ValueError("Training file %s not found.", 
-                train_path + responses_suffix)
-    if not (gfile.Exists(valid_path + utterances_suffix)):
-        raise ValueError("Validation file %s not found.", 
-                valid_path + utterances_suffix)
-    if not (gfile.Exists(valid_path + responses_suffix)):
-        raise ValueError("Validation file %s not found.", 
-                valid_path + responses_suffix)
+    if not (gfile.Exists(train_path + suffix)):
+        raise ValueError("Training file %s not found.", train_path + suffix)
+    if not (gfile.Exists(valid_path + suffix)):
+        raise ValueError("Validation file %s not found.", valid_path + suffix)
 
     return (train_path, valid_path)

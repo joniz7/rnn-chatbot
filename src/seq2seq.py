@@ -68,7 +68,8 @@ from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.ops import embedding_ops
 from tensorflow.python.ops import math_ops
 from tensorflow.python.ops import nn_ops
-from tensorflow.python.ops import rnn
+#from tensorflow.python.ops import rnn
+import rnn
 from tensorflow.python.ops import rnn_cell
 from tensorflow.python.ops import variable_scope
 import tensorflow as tf
@@ -442,7 +443,7 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
       stored decoder state and attention states.
 
   Returns:
-    A tuple of the form (outputs, state), where:
+    A tuple of the form (outputs, state, states), where:
       outputs: A list of the same length as decoder_inputs of 2D Tensors of
         shape [batch_size x output_size]. These represent the generated outputs.
         Output i is computed from input i (which is either the i-th element
@@ -510,6 +511,7 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
       return ds
 
     outputs = []
+    states = []
     prev = None
     batch_attn_size = array_ops.pack([batch_size, attn_size])
     attns = [array_ops.zeros(batch_attn_size, dtype=dtype)
@@ -517,6 +519,7 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
     for a in attns:  # Ensure the second shape of attention vectors is set.
       a.set_shape([None, attn_size])
     if initial_state_attention:
+      raise ValueError("initial_state_attention must be set to False. Ask someone to add support for it.")
       attns = attention(initial_state)
     for i, inp in enumerate(decoder_inputs):
       if i > 0:
@@ -533,9 +536,9 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
       if i == 0 and initial_state_attention:
         with variable_scope.variable_scope(variable_scope.get_variable_scope(),
                                            reuse=True):
-          attns = attention(state)
+          attns = attention(cell_output)#attention(state)
       else:
-        attns = attention(state)
+        attns = attention(cell_output)#attention(state)
 
       with variable_scope.variable_scope("AttnOutputProjection"):
         output = rnn_cell.linear([cell_output] + attns, output_size, True)
@@ -543,8 +546,9 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
         # We do not propagate gradients over the loop function.
         prev = array_ops.stop_gradient(output)
       outputs.append(output)
+      states.append(state)
 
-  return outputs, state
+  return outputs, state, states
 
 
 def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
@@ -552,7 +556,7 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
                                 output_size=None, output_projection=None,
                                 feed_previous=False, dtype=dtypes.float32,
                                 scope=None, initial_state_attention=False, 
-                                embedding_dimension=50, sample_output=False, random_numbers=None):
+                                embedding_dimension=50, noisify_output=False, random_numbers=None):
   """RNN decoder with embedding and attention and a pure-decoding option.
 
   Args:
@@ -600,7 +604,7 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
     proj_biases = ops.convert_to_tensor(output_projection[1], dtype=dtype)
     proj_biases.get_shape().assert_is_compatible_with([num_symbols])
 
-  with variable_scope.variable_scope("embedding", reuse=True):
+  with variable_scope.variable_scope("RNN/EmbeddingWrapper", reuse=True):
     with ops.device("/cpu:0"):
       embedding = variable_scope.get_variable("embedding",
                                                 [num_symbols, embedding_dimension])
@@ -612,7 +616,7 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
         prev = nn_ops.xw_plus_b(
             prev, output_projection[0], output_projection[1])
       # Sample output if flag is set.
-      if sample_output:
+      if noisify_output:
         prev_symbol = stochastic_output_sampling(prev, tf.slice(random_numbers, [index, 0], [1, -1]))
       else:
         prev_symbol = array_ops.stop_gradient(math_ops.argmax(prev, 1))
@@ -647,8 +651,8 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
                                 num_heads=1, output_projection=None,
                                 feed_previous=False, dtype=dtypes.float32,
                                 scope=None, initial_state_attention=False, 
-                                embedding_dimension=50, sample_output=False, 
-                                random_numbers=None):
+                                embedding_dimension=50, noisify_output=False, 
+                                random_numbers=None, initial_state=None, sequence_lengths=None):
   """Embedding sequence-to-sequence model with attention.
 
   This model first embeds encoder_inputs by a newly created embedding (of shape
@@ -691,12 +695,12 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
   """
   with variable_scope.variable_scope(scope or "embedding_attention_seq2seq"):
     # Encoder.
-    with variable_scope.variable_scope("embedding", reuse=True):
-      our_embedding = variable_scope.get_variable("embedding", [num_encoder_symbols, embedding_dimension]) #######
-    encoder_cell = rnn_cell.EmbeddingWrapper(cell, embedding=our_embedding)
+    #with variable_scope.variable_scope("RNN/EmbeddingWrapper", reuse=True):
+    #  our_embedding = variable_scope.get_variable("embedding", [num_encoder_symbols, embedding_dimension]) #######
+    encoder_cell = rnn_cell.EmbeddingWrapper(cell, num_encoder_symbols, embedding_dimension)
     encoder_outputs, encoder_state = rnn.rnn(
-        encoder_cell, encoder_inputs, dtype=dtype)
-
+        encoder_cell, encoder_inputs, initial_state=initial_state, dtype=dtype, sequence_length=sequence_lengths)
+    
     # First calculate a concatenation of encoder outputs to put attention on.
     top_states = [array_ops.reshape(e, [-1, 1, cell.output_size])
                   for e in encoder_outputs]
@@ -705,6 +709,7 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
     # Decoder.
     output_size = None
     if output_projection is None:
+      raise ValueError("output_projection must be provided! OutputProjectionWrapper will not work with modified attention")
       cell = rnn_cell.OutputProjectionWrapper(cell, num_decoder_symbols)
       output_size = num_decoder_symbols
 
@@ -714,26 +719,26 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
           num_decoder_symbols, num_heads=num_heads, output_size=output_size,
           output_projection=output_projection, feed_previous=feed_previous,
           initial_state_attention=initial_state_attention, 
-          embedding_dimension=embedding_dimension, sample_output=sample_output, random_numbers=random_numbers)
+          embedding_dimension=embedding_dimension, noisify_output=noisify_output, random_numbers=random_numbers)
 
     # If feed_previous is a Tensor, we construct 2 graphs and use cond.
     def decoder(feed_previous_bool):
       reuse = None if feed_previous_bool else True
       with variable_scope.variable_scope(variable_scope.get_variable_scope(),
                                          reuse=reuse):
-        outputs, state = embedding_attention_decoder(
+        outputs, state, states = embedding_attention_decoder(
             decoder_inputs, encoder_state, attention_states, cell,
             num_decoder_symbols, num_heads=num_heads, output_size=output_size,
             output_projection=output_projection,
             feed_previous=feed_previous_bool,
             initial_state_attention=initial_state_attention, 
-            embedding_dimension=embedding_dimension, sample_output=sample_output, random_numbers=random_numbers)
-        return outputs + [state]
+            embedding_dimension=embedding_dimension, noisify_output=noisify_output, random_numbers=random_numbers)
+        return outputs + [state] + [states]
 
     outputs_and_state = control_flow_ops.cond(feed_previous,
                                               lambda: decoder(True),
                                               lambda: decoder(False))
-    return outputs_and_state[:-1], outputs_and_state[-1]
+    return outputs_and_state[:-2], outputs_and_state[-2], outputs_and_state[-1]
 
 
 def one2many_rnn_seq2seq(encoder_inputs, decoder_inputs_dict, cell,
